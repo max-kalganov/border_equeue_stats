@@ -4,7 +4,7 @@ import plotly.express as px
 
 
 def plot_waiting_hours():
-    with open('../data/brest_border_equeue.txt', 'r') as f:
+    with open('data/brest_border_equeue.txt', 'r') as f:
         lines = f.readlines()
 
     all_dt, all_td, all_regnum = [], [], []
@@ -25,7 +25,7 @@ def plot_waiting_hours():
 
 
 def plot_cars_cnt():
-    with open('../data/brest_border_equeue.txt', 'r') as f:
+    with open('data/brest_border_equeue.txt', 'r') as f:
         lines = f.readlines()
 
     all_dt, all_cnt = [], []
