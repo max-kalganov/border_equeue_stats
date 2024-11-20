@@ -11,51 +11,59 @@ from border_equeue_stats.data_storage.data_storage_utils import convert_to_panda
 
 
 def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
-                      in_batches: bool = False, **batching_kwargs) -> pd.DataFrame:
+                      in_batches: bool = False, **batching_kwargs) -> tp.Iterable[tp.Optional[pd.DataFrame]]:
     data_dir = os.path.join(parquet_storage_path, name)
     os.makedirs(data_dir, exist_ok=True)
     dataset = pq.ParquetDataset(data_dir, filters=filters)
-    if in_batches:
-        for pq_file_name in dataset.files:
-            pq_file = pq.ParquetFile(pq_file_name)
-            for batch in pq_file.iter_batches(**batching_kwargs):
-                yield batch.to_pandas()
+    if len(dataset.files) > 0:
+        if in_batches:
+            for pq_file_name in dataset.files:
+                pq_file = pq.ParquetFile(pq_file_name)
+                for batch in pq_file.iter_batches(**batching_kwargs):
+                    yield batch.to_pandas()
+        else:
+            yield dataset.read().to_pandas()
     else:
-        yield dataset.read().to_pandas()
+        yield None
 
 
 def read_all_from_parquet(filters: tp.Optional = None,
-                          parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> EqueueData:
+                          parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
+                          apply_filter_to_info: bool = False) -> EqueueData:
     return EqueueData(
-        info=read_from_parquet(ct.INFO_KEY, parquet_storage_path=parquet_storage_path,
-                               filters=filters, in_batches=False),
-        truck_queue=read_from_parquet(name=ct.TRUCK_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
-                                      filters=filters, in_batches=False),
-        truck_priority=read_from_parquet(name=ct.TRUCK_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
-                                         filters=filters, in_batches=False),
-        truck_gpk=read_from_parquet(name=ct.TRUCK_GPK_KEY, parquet_storage_path=parquet_storage_path,
-                                    filters=filters, in_batches=False),
-        bus_queue=read_from_parquet(name=ct.BUS_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
-                                    filters=filters, in_batches=False),
-        bus_priority=read_from_parquet(name=ct.BUS_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
-                                       filters=filters, in_batches=False),
-        car_queue=read_from_parquet(name=ct.CAR_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
-                                    filters=filters, in_batches=False),
-        car_priority=read_from_parquet(name=ct.CAR_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
-                                       filters=filters, in_batches=False),
-        motorcycle_queue=read_from_parquet(name=ct.MOTORCYCLE_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
-                                           filters=filters, in_batches=False),
-        motorcycle_priority=read_from_parquet(name=ct.MOTORCYCLE_PRIORITY_KEY,
-                                              parquet_storage_path=parquet_storage_path,
-                                              filters=filters, in_batches=False)
+        info=list(read_from_parquet(ct.INFO_KEY, parquet_storage_path=parquet_storage_path,
+                                    filters=filters if apply_filter_to_info else None, in_batches=False))[0],
+        truck_queue=list(read_from_parquet(name=ct.TRUCK_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
+                                           filters=filters, in_batches=False))[0],
+        truck_priority=list(read_from_parquet(name=ct.TRUCK_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
+                                              filters=filters, in_batches=False))[0],
+        truck_gpk=list(read_from_parquet(name=ct.TRUCK_GPK_KEY, parquet_storage_path=parquet_storage_path,
+                                         filters=filters, in_batches=False))[0],
+        bus_queue=list(read_from_parquet(name=ct.BUS_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
+                                         filters=filters, in_batches=False))[0],
+        bus_priority=list(read_from_parquet(name=ct.BUS_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
+                                            filters=filters, in_batches=False))[0],
+        car_queue=list(read_from_parquet(name=ct.CAR_LIVE_QUEUE_KEY, parquet_storage_path=parquet_storage_path,
+                                         filters=filters, in_batches=False))[0],
+        car_priority=list(read_from_parquet(name=ct.CAR_PRIORITY_KEY, parquet_storage_path=parquet_storage_path,
+                                            filters=filters, in_batches=False))[0],
+        motorcycle_queue=list(read_from_parquet(name=ct.MOTORCYCLE_LIVE_QUEUE_KEY,
+                                                parquet_storage_path=parquet_storage_path,
+                                                filters=filters, in_batches=False))[0],
+        motorcycle_priority=list(read_from_parquet(name=ct.MOTORCYCLE_PRIORITY_KEY,
+                                                   parquet_storage_path=parquet_storage_path,
+                                                   filters=filters, in_batches=False))[0]
     )
 
 
 def read_parquet_info_data(filter_hash: tp.Optional[str] = None,
                            parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> tp.Optional[pd.DataFrame]:
     filters = None if filter_hash is None else [('hash', '==', filter_hash)]
-    df = read_from_parquet(name=ct.INFO_KEY, parquet_storage_path=parquet_storage_path, filters=filters)
-    return df if len(df) > 0 else None
+    df = list(read_from_parquet(name=ct.INFO_KEY,
+                                parquet_storage_path=parquet_storage_path,
+                                filters=filters,
+                                in_batches=False))[0]
+    return df if df is not None and len(df) > 0 else None
 
 
 def is_info_stored(filter_hash: str, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> bool:
