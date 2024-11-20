@@ -41,7 +41,9 @@ def convert_equeue_info_to_pandas(equeue_info: tp.Dict, load_dt: datetime) -> pd
         'address': equeue_info['address'],
         'phone': equeue_info['phone'],
         'is_brest': equeue_info['isBts'],
-        'name_ru': equeue_info['name']
+        'name_ru': equeue_info['name'],
+        'hash': hash('_'.join(map(str, [equeue_info['id'], equeue_info['nameEn'], equeue_info['address'],
+                                        equeue_info['phone'], equeue_info['isBts'], equeue_info['name']])))
     })
 
 
