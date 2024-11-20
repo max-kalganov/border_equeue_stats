@@ -81,8 +81,6 @@ def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_P
     def dump_info(info: tp.Union[pd.Series, pd.DataFrame]):
         if isinstance(info, pd.Series):
             info = info.to_frame().T
-        info['hash'] = info[['id', 'name', 'address', 'phone', 'is_brest', 'name_ru']] \
-            .apply(lambda r: hash('_'.join(map(str, r.values))), axis=1)
         info['is_stored'] = info['hash'].apply(lambda h: is_info_stored(filter_hash=h,
                                                                         parquet_storage_path=parquet_storage_path))
         not_stored_info = info[~info['is_stored']].drop('is_stored', axis=1)
@@ -102,10 +100,11 @@ def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_P
     dump_single_df(single_equeue_dataframes.motorcycle_priority, ct.MOTORCYCLE_PRIORITY_KEY)
 
 
-def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PATH):
+def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PATH,
+                                    parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
     with open(json_storage_path, 'r') as f:
         lines = f.readlines()
 
     for line in lines:
-        line_dict = json.loads(line.replace("'", '"').replace('None', '"None"'))
-        dump_to_parquet(line_dict)
+        line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
+        dump_to_parquet(line_dict, parquet_storage_path=parquet_storage_path)

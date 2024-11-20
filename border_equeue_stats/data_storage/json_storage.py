@@ -12,19 +12,19 @@ def dump_to_json(data: dict) -> None:
         f.write(str(data) + '\n')
 
 
-def read_from_json() -> EqueueData:
+def read_from_json(json_storage_path: str = JSON_STORAGE_PATH) -> EqueueData:
     def concat_all_dfs(key):
         dfs = [df for df in all_dfs[key] if df is not None]
         return pd.concat(dfs) if len(dfs) > 0 else None
 
-    with open(JSON_STORAGE_PATH, 'r') as f:
+    with open(json_storage_path, 'r') as f:
         lines = f.readlines()
 
     infos = set()
     all_dfs = defaultdict(list)
 
     for line in lines:
-        line_dict = json.loads(line.replace("'", '"').replace('None', '"None"'))
+        line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
         single_equeue_dataframes = convert_to_pandas_equeue(line_dict)
         info_str = single_equeue_dataframes.info[['id', 'name', 'address', 'phone', 'is_brest', 'name_ru']].to_string()
         if info_str not in infos:
