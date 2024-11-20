@@ -9,6 +9,7 @@ import pandas as pd
 
 from border_equeue_stats.data_storage.data_models import EqueueData
 from border_equeue_stats.data_storage.data_storage_utils import convert_to_pandas_equeue
+from border_equeue_stats.data_storage.json_storage import read_from_json
 from border_equeue_stats.data_storage.parquet_storage import dump_to_parquet, read_from_parquet, read_all_from_parquet, \
     dump_all_stored_json_to_parquet
 
@@ -45,7 +46,13 @@ class TestParquetStorage(unittest.TestCase):
                 'address': 'Брест, Варшавское шоссе, 1',
                 'phone': '+375 (162) 58-60-44,+375 (162) 58-60-50,+375 (33) 323-75-89',
                 'is_brest': 1,
-                'name_ru': 'Брест'
+                'name_ru': 'Брест',
+                'hash': hash('a9173a85-3fc0-424c-84f0-defa632481e4'
+                             '_Brest BTS'
+                             '_Брест, Варшавское шоссе, 1'
+                             '_+375 (162) 58-60-44,+375 (162) 58-60-50,+375 (33) 323-75-89'
+                             '_1'
+                             '_Брест')
             }),
             truck_queue=None,
             truck_priority=None,
@@ -96,18 +103,27 @@ class TestParquetStorage(unittest.TestCase):
         tested_data = convert_to_pandas_equeue(equeue_snapshot_dict=test_dict)
         self.assertTrue(true_data == tested_data)
 
+    def test_2_single_dump(self):
+        for test_num, test_single_json in enumerate(self.test_all_jsons):
+            with self.subTest(test_num=test_num):
+                dump_to_parquet(test_single_json, parquet_storage_path=self.test_equeue_pq_path)
+                tested_data = read_all_from_parquet(
+                    filters=[('load_dt', '=', datetime.strptime(test_single_json['datetime'], '%Y-%m-%d %H:%M:%S.%f'))],
+                    parquet_storage_path=self.test_equeue_pq_path,
+                    apply_filter_to_info=False
+                )
+                true_data = convert_to_pandas_equeue(test_single_json)
+                self.assertTrue(true_data == tested_data)
+                # TODO: fix different types in queue_pos - float and int
+
+    def test_3_full_dump(self):
+        dump_all_stored_json_to_parquet(json_storage_path=self.test_equeue_path,
+                                        parquet_storage_path=self.test_equeue_pq_path)
+        tested_data = read_all_from_parquet(parquet_storage_path=self.test_equeue_pq_path, apply_filter_to_info=False)
+        true_data = read_from_json(json_storage_path=self.test_equeue_path)
+        self.assertTrue(true_data == tested_data)
     #
-    # def test_dump(self):
-    #     for test_single_json in self.test_all_jsons:
-    #         dump_to_parquet(test_single_json, parquet_storage_path=self.test_equeue_pq_path)
-    #         data = read_all_from_parquet(parquet_storage_path=self.test_equeue_pq_path)
-    #         true_data = pass
-    #
-    #
-    #     dump_all_stored_json_to_parquet
-    #     read_all_from_parquet
-    #
-    # def test_read(self):
+    # def test_3_read(self):
     #     "test read single"
     #
     #     "test read all"
@@ -117,11 +133,11 @@ class TestParquetStorage(unittest.TestCase):
     #     "test read with filter"
     #
     #
-    # def test_read_info(self):
+    # def test_4_read_info(self):
     #     # read_parquet_info_data
     #     pass
     #
-    # def test_is_info_stored(self):
+    # def test_5_is_info_stored(self):
     #     # is_info_stored
     #     pass
     #
