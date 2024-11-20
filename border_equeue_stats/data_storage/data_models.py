@@ -26,8 +26,21 @@ class EqueueData:
             else:
                 return df1 is None and df2 is None
 
+        def _check_infos(info1, info2):
+            if not (isinstance(info1, (pd.Series, pd.DataFrame)) and isinstance(info2, (pd.Series, pd.DataFrame))):
+                return False
+
+            if isinstance(info1, pd.Series):
+                info1 = info1.to_frame().T
+
+            if isinstance(info2, pd.Series):
+                info2 = info2.to_frame().T
+
+            return _check_dfs(df1=info1[info1.columns.difference(['load_dt', 'year', 'month'])],
+                              df2=info2[info2.columns.difference(['load_dt', 'year', 'month'])])
+
         try:
-            are_all_passed = (self.info == other.info).all() \
+            are_all_passed = _check_infos(self.info, other.info) \
                              and _check_dfs(self.truck_queue, other.truck_queue) \
                              and _check_dfs(self.truck_priority, other.truck_priority) \
                              and _check_dfs(self.truck_gpk, other.truck_gpk) \
