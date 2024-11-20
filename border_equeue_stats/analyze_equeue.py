@@ -9,7 +9,7 @@ def plot_waiting_hours():
 
     all_dt, all_td, all_regnum = [], [], []
     for line in lines:
-        line_dict = json.loads(line.replace("'", '"').replace('None', '"None"'))
+        line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
         first_in_queue = line_dict['carLiveQueue'][0]
         all_regnum.append(f"{first_in_queue['regnum']}-{line_dict['datetime']}")
         all_dt.append(datetime.strptime(first_in_queue['registration_date'],
@@ -30,7 +30,7 @@ def plot_cars_cnt():
 
     all_dt, all_cnt = [], []
     for line in lines:
-        line_dict = json.loads(line.replace("'", '"').replace('None', '"None"'))
+        line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
         que_cnt = len(line_dict['carLiveQueue'])
         all_dt.append(datetime.strptime(line_dict['datetime'], '%Y-%m-%d %H:%M:%S.%f'))
         all_cnt.append(que_cnt)
