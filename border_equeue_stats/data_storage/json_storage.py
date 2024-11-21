@@ -15,7 +15,7 @@ def dump_to_json(data: dict) -> None:
 def read_from_json(json_storage_path: str = JSON_STORAGE_PATH) -> EqueueData:
     def concat_all_dfs(key):
         dfs = [df for df in all_dfs[key] if df is not None]
-        return pd.concat(dfs) if len(dfs) > 0 else None
+        return pd.concat(dfs).reset_index(drop=True) if len(dfs) > 0 else None
 
     with open(json_storage_path, 'r') as f:
         lines = f.readlines()
@@ -41,7 +41,7 @@ def read_from_json(json_storage_path: str = JSON_STORAGE_PATH) -> EqueueData:
         all_dfs['motorcycle_queue'].append(single_equeue_dataframes.motorcycle_queue)
         all_dfs['motorcycle_priority'].append(single_equeue_dataframes.motorcycle_priority)
     return EqueueData(
-        info=pd.concat(all_dfs['info'], axis=1).T,
+        info=pd.concat(all_dfs['info'], axis=1).T.reset_index(drop=True),
         truck_queue=concat_all_dfs('truck_queue'),
         truck_priority=concat_all_dfs('truck_priority'),
         truck_gpk=concat_all_dfs('truck_gpk'),
