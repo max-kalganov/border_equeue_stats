@@ -17,7 +17,7 @@ def parse_equeue(url: str) -> dict:
 
 
 def convert_equeue_entity_to_pandas(equeue_entity: tp.Dict, load_dt: datetime) -> pd.Series:
-    return pd.Series({
+    equeue_data = {
         'year': load_dt.year,
         'month': load_dt.month,
         # 'week': load_dt.,
@@ -28,7 +28,9 @@ def convert_equeue_entity_to_pandas(equeue_entity: tp.Dict, load_dt: datetime) -
         'queue_type': equeue_entity['type_queue'],
         'reg_date': datetime.strptime(equeue_entity['registration_date'], '%H:%M:%S %d.%m.%Y'),
         'changed_date': datetime.strptime(equeue_entity['changed_date'], '%H:%M:%S %d.%m.%Y')
-    })
+    }
+    assert sorted(equeue_data.keys()) == sorted(ct.EQUEUE_COLUMNS), 'not all columns are set'
+    return pd.Series(equeue_data)
 
 
 def convert_equeue_info_to_pandas(equeue_info: tp.Dict, load_dt: datetime) -> pd.Series:
@@ -53,6 +55,16 @@ def convert_to_pandas_equeue(equeue_snapshot_dict: tp.Dict) -> EqueueData:
         if len(all_entities) > 0:
             grouped_entities = pd.concat([convert_equeue_entity_to_pandas(equeue_entity=entity, load_dt=load_dt)
                                           for entity in all_entities], axis=1).T
+            grouped_entities = grouped_entities.astype({
+                'load_dt': 'datetime64[us]',
+                'reg_date': 'datetime64[us]',
+                'changed_date': 'datetime64[us]',
+                'year': 'int32',
+                'month': 'int32',
+                'status': 'int64',
+                'queue_pos': 'float64',
+                'queue_type': 'int32'
+            })
         return grouped_entities
 
     load_dt = datetime.strptime(equeue_snapshot_dict['datetime'], '%Y-%m-%d %H:%M:%S.%f')

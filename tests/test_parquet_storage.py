@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from border_equeue_stats.data_storage.data_models import EqueueData
+from border_equeue_stats.constants import CAR_LIVE_QUEUE_KEY
 from border_equeue_stats.data_storage.data_storage_utils import convert_to_pandas_equeue
 from border_equeue_stats.data_storage.json_storage import read_from_json
 from border_equeue_stats.data_storage.parquet_storage import dump_to_parquet, read_from_parquet, read_all_from_parquet, \
@@ -113,34 +114,35 @@ class TestParquetStorage(unittest.TestCase):
                     apply_filter_to_info=False
                 )
                 true_data = convert_to_pandas_equeue(test_single_json)
+                if test_num == 2:
+                    prev_true_data = convert_to_pandas_equeue(self.test_all_jsons[0])
+                    true_data.info = pd.concat([prev_true_data.info, true_data.info], axis=1).T
                 self.assertTrue(true_data == tested_data)
-                # TODO: fix different types in queue_pos - float and int
 
     def test_3_full_dump(self):
         dump_all_stored_json_to_parquet(json_storage_path=self.test_equeue_path,
                                         parquet_storage_path=self.test_equeue_pq_path)
         tested_data = read_all_from_parquet(parquet_storage_path=self.test_equeue_pq_path, apply_filter_to_info=False)
         true_data = read_from_json(json_storage_path=self.test_equeue_path)
+
         self.assertTrue(true_data == tested_data)
-    #
-    # def test_3_read(self):
-    #     "test read single"
-    #
-    #     "test read all"
-    #
-    #     "test read in batches"
-    #
-    #     "test read with filter"
-    #
-    #
-    # def test_4_read_info(self):
-    #     # read_parquet_info_data
-    #     pass
-    #
-    # def test_5_is_info_stored(self):
-    #     # is_info_stored
-    #     pass
-    #
+
+    def test_4_read_batches(self):
+        dump_all_stored_json_to_parquet(json_storage_path=self.test_equeue_path,
+                                        parquet_storage_path=self.test_equeue_pq_path)
+
+        all_batches = [batch for batch in read_from_parquet(CAR_LIVE_QUEUE_KEY,
+                                                            filters=None,
+                                                            parquet_storage_path=self.test_equeue_pq_path,
+                                                            in_batches=True,
+                                                            batch_size=5)]
+        full_tested_data = pd.concat(all_batches).sort_values('load_dt').reset_index(drop=True)
+
+        true_equeue_data = read_from_json(json_storage_path=self.test_equeue_path)
+        true_data = true_equeue_data.car_queue.sort_values('load_dt').reset_index(drop=True)
+        # TODO: add partitioning keys into batches and remove the following filter
+        true_data = true_data[true_data.columns.difference(['year', 'month'])]
+        self.assertTrue(EqueueData._check_dfs(df1=full_tested_data, df2=true_data))
 
 
 if __name__ == '__main__':
