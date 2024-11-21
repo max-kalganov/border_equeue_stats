@@ -19,6 +19,9 @@ def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: s
         if in_batches:
             for pq_file_name in dataset.files:
                 pq_file = pq.ParquetFile(pq_file_name)
+                # TODO: partitioning keys are not added even with explicit columns -> find a way to add them.
+                # if 'columns' not in batching_kwargs:
+                #     batching_kwargs['columns'] = ct.EQUEUE_COLUMNS
                 for batch in pq_file.iter_batches(**batching_kwargs):
                     yield batch.to_pandas()
         else:
