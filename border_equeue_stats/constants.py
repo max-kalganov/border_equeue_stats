@@ -4,6 +4,11 @@ EQUEUE_JSON_PATH = "https://belarusborder.by/info/" \
 JSON_STORAGE_PATH = 'data/brest_border_equeue.txt'
 PARQUET_STORAGE_PATH = 'data'
 
+##################################################################################################
+# EqueueData
+##################################################################################################
+EQUEUE_COLUMNS = ['year', 'month', 'load_dt', 'car_number', 'status', 'queue_pos',
+                  'queue_type', 'reg_date', 'changed_date']
 
 ##################################################################################################
 # Equeue fields
