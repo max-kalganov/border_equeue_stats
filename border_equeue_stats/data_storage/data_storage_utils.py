@@ -1,19 +1,10 @@
 import typing as tp
 
 import pandas as pd
-import requests
-import json
 from datetime import datetime
 
 from border_equeue_stats.data_storage.data_models import EqueueData
 from border_equeue_stats import constants as ct
-
-
-def parse_equeue(url: str) -> dict:
-    results = requests.get(url)
-    data = json.loads(results.text)
-    data['datetime'] = str(datetime.now())
-    return data
 
 
 def convert_equeue_entity_to_pandas(equeue_entity: tp.Dict, load_dt: datetime) -> pd.Series:

@@ -18,6 +18,8 @@ def beautiful_soup_parser():
     print()
 
 
+
+
 def direct_parser():
     results = requests.get('https://belarusborder.by/info/'
                           'monitoring-new?token=test&checkpointId=a9173a85-3fc0-424c-84f0-defa632481e4')
@@ -25,3 +27,10 @@ def direct_parser():
     equeue['datetime'] = str(datetime.now())
     with open('../data/brest_border_equeue.txt', 'a') as f:
         f.write(str(equeue) + '\n')
+
+
+def parse_equeue(url: str) -> dict:
+    results = requests.get(url)
+    data = json.loads(results.text)
+    data['datetime'] = str(datetime.now())
+    return data
