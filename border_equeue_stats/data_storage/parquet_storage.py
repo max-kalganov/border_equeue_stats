@@ -125,3 +125,39 @@ def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PAT
     for line in lines:
         line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
         dump_to_parquet(line_dict, parquet_storage_path=parquet_storage_path)
+
+
+def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH, target_rows_per_file: int = 300000):
+    def has_many_files(dt, path: str):
+        all_files = dt.files
+        unq_partitions = set()
+        has_unq_partitions = True
+        for f in all_files:
+            assert f.startswith(path)
+            partition = os.path.dirname(f)[len(path):].strip(os.sep)
+            if partition in unq_partitions:
+                has_unq_partitions = False
+                break
+            unq_partitions.add(partition)
+        return not has_unq_partitions
+
+    tmp_parquet_storage_path = parquet_storage_path.rstrip('/') + '_tmp'
+    os.makedirs(tmp_parquet_storage_path, exist_ok=True)
+
+    for name in tqdm(ct.ALL_EQUEUE_KEYS, desc='Processing equeue folders'):
+        cur_path = os.path.join(parquet_storage_path, name)
+        if not os.path.exists(cur_path):
+            continue
+        dataset = pq.ParquetDataset(cur_path)
+        if not has_many_files(dataset, cur_path):
+            shutil.move(cur_path, os.path.join(tmp_parquet_storage_path, name))
+        else:
+            df = list(read_from_parquet(name=name, parquet_storage_path=parquet_storage_path, in_batches=False))[0]
+            if df is not None:
+                table = pa.Table.from_pandas(df)
+                pq.write_to_dataset(table, root_path=os.path.join(tmp_parquet_storage_path, name),
+                                    partition_cols=['year', 'month'], file_visitor=file_visitor)
+
+    shutil.rmtree(parquet_storage_path)
+    # os.rename(parquet_storage_path, parquet_storage_path + '_backup')
+    os.rename(tmp_parquet_storage_path, parquet_storage_path)
