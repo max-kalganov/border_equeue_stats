@@ -141,7 +141,7 @@ class TestParquetStorage(unittest.TestCase):
         true_equeue_data = read_from_json(json_storage_path=self.test_equeue_path)
         true_data = true_equeue_data.car_queue.sort_values('load_dt').reset_index(drop=True)
         # TODO: add partitioning keys into batches and remove the following filter
-        true_data = true_data[true_data.columns.difference(['year', 'month'])]
+        # true_data = true_data[true_data.columns.difference(['year', 'month'])]
         self.assertTrue(EqueueData._check_dfs(df1=full_tested_data, df2=true_data))
 
 

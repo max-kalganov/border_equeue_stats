@@ -1,9 +1,11 @@
 import json
 import os
+import shutil
 import typing as tp
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from tqdm import tqdm
 
 from border_equeue_stats import constants as ct
 from border_equeue_stats.data_storage.data_models import EqueueData
@@ -23,7 +25,10 @@ def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: s
                 # if 'columns' not in batching_kwargs:
                 #     batching_kwargs['columns'] = ct.EQUEUE_COLUMNS
                 for batch in pq_file.iter_batches(**batching_kwargs):
-                    yield batch.to_pandas()
+                    batch_df = batch.to_pandas()
+                    batch_df['month'] = batch_df['load_dt'].apply(lambda l: l.month)
+                    batch_df['year'] = batch_df['load_dt'].apply(lambda l: l.year)
+                    yield batch_df
         else:
             yield dataset.read().to_pandas()
     else:
@@ -74,12 +79,13 @@ def is_info_stored(filter_hash: str, parquet_storage_path: str = ct.PARQUET_STOR
     return stored_info_df is not None and len(stored_info_df) > 0
 
 
-def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> None:
-    def file_visitor(written_file):
-        print(f"path={written_file.path}")
-        print(f"size={written_file.size} bytes")
-        print(f"metadata={written_file.metadata}")
+def file_visitor(written_file):
+    print(f"path={written_file.path}")
+    print(f"size={written_file.size} bytes")
+    print(f"metadata={written_file.metadata}")
 
+
+def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> None:
     def dump_single_df(df: tp.Optional[pd.DataFrame], name: str):
         if df is not None and len(df) > 0:
             # TODO: check None values in queue_pos column
