@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import typing as tp
 from border_equeue_stats import constants as ct
@@ -57,5 +58,45 @@ def get_waiting_time(queues_names: tp.List[str],
             and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
         'incorrect queue names for get_waiting_time'
     assert relative_time in {'reg', 'load'}
+
+    return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
+
+
+def get_count(queues_names: tp.List[str],
+              filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+    """
+    Returns DataFrame with vehicle counts over time.
+
+    :param queues_names: List[str] - list of queues which will be in the
+        dataframe separated by queue_name column value
+    :param filters: Optional[List[str]] - parquet data filters
+    :return:
+        DataFrame columns:
+        (1) relative_time - data load date
+        (2) vehicle_count - number of ordered vehicles in queue at a specific load date
+        (3) queue_name - name of the queue for the specific row
+    """
+    def read_queue(name):
+        read_filters = filters if filters is not None else []
+        read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
+        queue_df = list(read_from_parquet(
+            name,
+            filters=read_filters,
+            parquet_storage_path=ct.PARQUET_STORAGE_PATH,
+            in_batches=False,
+            columns=[ct.QUEUE_POS_COLUMN, ct.LOAD_DATE_COLUMN]
+        ))[0]
+        queue_df = queue_df.groupby(ct.LOAD_DATE_COLUMN).aggregate({ct.QUEUE_POS_COLUMN: 'max'}).reset_index()
+        queue_df = queue_df.rename(columns={ct.LOAD_DATE_COLUMN: 'relative_time',
+                                            ct.QUEUE_POS_COLUMN: 'vehicle_count'})
+        queue_df['queue_name'] = name
+        return queue_df[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
+
+    unq_queue_names = set(queues_names)
+    assert (len(queues_names) > 0
+            and len(ct.ALL_EQUEUE_KEYS) > len(queues_names) == len(unq_queue_names)
+            and ct.INFO_KEY not in unq_queue_names
+            and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
+        'incorrect queue names for get_waiting_time'
 
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)

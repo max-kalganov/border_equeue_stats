@@ -3,7 +3,7 @@ import json
 import plotly.express as px
 import typing as tp
 from border_equeue_stats import constants as ct
-from border_equeue_stats.queue_stats import get_waiting_time
+from border_equeue_stats.queue_stats import get_waiting_time, get_count
 
 
 def plot_waiting_hours(queues_names, relative_time):
@@ -25,6 +25,18 @@ def plot_waiting_hours_by_reg(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KE
 
 def plot_waiting_hours_by_load(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.CAR_PRIORITY_KEY)):
     plot_waiting_hours(queues_names, relative_time='load')
+
+
+def plot_vehicle_counts(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.CAR_PRIORITY_KEY)):
+    df = get_count(queues_names=queues_names)
+    fig = px.line(df,
+                  x='relative_time',
+                  y='vehicle_count',
+                  labels=dict(relative_time="Queue dump date",
+                              vehicle_count="Number of vehicles",
+                              queue_name="Queue types"),
+                  color='queue_name')
+    fig.show()
 
 
 def plot_cars_cnt():
