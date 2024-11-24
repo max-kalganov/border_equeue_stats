@@ -3,7 +3,7 @@ import json
 import plotly.express as px
 import typing as tp
 from border_equeue_stats import constants as ct
-from border_equeue_stats.queue_stats import get_waiting_time, get_count
+from border_equeue_stats.queue_stats import get_waiting_time, get_count, get_count_by_regions
 
 
 def plot_waiting_hours(queues_names, relative_time):
@@ -36,6 +36,34 @@ def plot_vehicle_counts(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.
                               vehicle_count="Number of vehicles",
                               queue_name="Queue types"),
                   color='queue_name')
+    fig.show()
+
+
+def plot_vehicle_count_per_regions(queue_name: str = ct.CAR_LIVE_QUEUE_KEY, plot_type: str = 'bar'):
+    """
+    :param plot_type: str - 'bar' - regions are stacked on top of each other
+                            'line' - separate lines for each region
+    """
+    assert plot_type in ('bar', 'line'), 'incorrect plot type'
+    if plot_type == 'line':
+        df = get_count_by_regions(queue_name=queue_name, floor_value=None)
+        fig = px.line(df,
+                      x='relative_time',
+                      y='vehicle_count',
+                      labels=dict(relative_time="Queue dump date",
+                                  vehicle_count="Number of vehicles",
+                                  region="Regions"),
+                      color='region')
+    else:
+        df = get_count_by_regions(queue_name=queue_name)#, floor_value='d')
+        fig = px.area(df,
+                      x='relative_time',
+                      y='vehicle_count',
+                      labels=dict(relative_time="Queue dump date",
+                                  vehicle_count="Number of vehicles",
+                                  region="Regions"),
+                      color='region',
+                      line_group='region')
     fig.show()
 
 

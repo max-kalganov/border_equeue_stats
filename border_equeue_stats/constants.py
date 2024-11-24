@@ -1,8 +1,25 @@
+import re
+
 EQUEUE_JSON_PATH = "https://belarusborder.by/info/" \
                    "monitoring-new?token=test&checkpointId=a9173a85-3fc0-424c-84f0-defa632481e4"
 
 JSON_STORAGE_PATH = 'data/brest_border_equeue.txt'
 PARQUET_STORAGE_PATH = 'data/parquet_dataset'
+
+##################################################################################################
+# Stats constants
+##################################################################################################
+
+BELARUS_CAR_NUMBER_FORMAT = re.compile(r'^(\d){4}[A-Z]{2}(\d){1}$')
+BELARUS_REGIONS_MAP = {
+    '1': 'Brest Region',
+    '2': 'Vitebsk Region',
+    '3': 'Gomel Region',
+    '4': 'Grodno Region',
+    '5': 'Minsk Region',
+    '6': 'Mogilev Region',
+    '7': 'Minsk City'
+}
 
 ##################################################################################################
 # EqueueData
