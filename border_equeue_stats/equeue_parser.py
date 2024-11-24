@@ -18,8 +18,6 @@ def beautiful_soup_parser():
     print()
 
 
-
-
 def direct_parser():
     results = requests.get('https://belarusborder.by/info/'
                           'monitoring-new?token=test&checkpointId=a9173a85-3fc0-424c-84f0-defa632481e4')
