@@ -13,7 +13,7 @@ from border_equeue_stats.data_storage.data_storage_utils import convert_to_panda
 
 
 def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
-                      in_batches: bool = False, **batching_kwargs) -> tp.Iterable[tp.Optional[pd.DataFrame]]:
+                      in_batches: bool = False, columns=None, **batching_kwargs) -> tp.Iterable[tp.Optional[pd.DataFrame]]:
     data_dir = os.path.join(parquet_storage_path, name)
     os.makedirs(data_dir, exist_ok=True)
     dataset = pq.ParquetDataset(data_dir, filters=filters)
@@ -24,13 +24,13 @@ def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: s
                 # TODO: partitioning keys are not added even with explicit columns -> find a way to add them.
                 # if 'columns' not in batching_kwargs:
                 #     batching_kwargs['columns'] = ct.EQUEUE_COLUMNS
-                for batch in pq_file.iter_batches(**batching_kwargs):
+                for batch in pq_file.iter_batches(columns=columns, **batching_kwargs):
                     batch_df = batch.to_pandas()
                     batch_df[ct.MONTH_COLUMN] = batch_df[ct.LOAD_DATE_COLUMN].apply(lambda l: l.month)
                     batch_df[ct.YEAR_COLUMN] = batch_df[ct.LOAD_DATE_COLUMN].apply(lambda l: l.year)
                     yield batch_df
         else:
-            yield dataset.read().to_pandas()
+            yield dataset.read(columns=columns).to_pandas()
     else:
         yield None
 
