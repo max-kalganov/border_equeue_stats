@@ -1,6 +1,7 @@
 from typing import Union, Optional
 import pandas as pd
 from dataclasses import dataclass
+from border_equeue_stats import constants as ct
 
 
 @dataclass
@@ -19,10 +20,10 @@ class EqueueData:
     @staticmethod
     def _check_dfs(df1, df2):
         if isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
-            if 'load_dt' in df1:
-                df1 = df1.sort_values('load_dt').reset_index(drop=True)
-            if 'load_dt' in df2:
-                df2 = df2.sort_values('load_dt').reset_index(drop=True)
+            if ct.LOAD_DATE_COLUMN in df1:
+                df1 = df1.sort_values(ct.LOAD_DATE_COLUMN).reset_index(drop=True)
+            if ct.LOAD_DATE_COLUMN in df2:
+                df2 = df2.sort_values(ct.LOAD_DATE_COLUMN).reset_index(drop=True)
             cols = df1.columns
             compared_dfs = (df1[cols] == df2[cols])
             return (sorted(df1.columns) == sorted(df2.columns)) \
@@ -42,11 +43,13 @@ class EqueueData:
         if isinstance(info2, pd.Series):
             info2 = info2.to_frame().T
 
-        info1 = info1.sort_values('load_dt').reset_index(drop=True)
-        info2 = info2.sort_values('load_dt').reset_index(drop=True)
+        info1 = info1.sort_values(ct.LOAD_DATE_COLUMN).reset_index(drop=True)
+        info2 = info2.sort_values(ct.LOAD_DATE_COLUMN).reset_index(drop=True)
 
-        return self._check_dfs(df1=info1[info1.columns.difference(['load_dt', 'year', 'month'])],
-                               df2=info2[info2.columns.difference(['load_dt', 'year', 'month'])])
+        return self._check_dfs(df1=info1[info1.columns.difference([ct.LOAD_DATE_COLUMN,
+                                                                   ct.YEAR_COLUMN, ct.MONTH_COLUMN])],
+                               df2=info2[info2.columns.difference([ct.LOAD_DATE_COLUMN,
+                                                                   ct.YEAR_COLUMN, ct.MONTH_COLUMN])])
 
     def __eq__(self, other):
         try:

@@ -9,16 +9,15 @@ from border_equeue_stats import constants as ct
 
 def convert_equeue_entity_to_pandas(equeue_entity: tp.Dict, load_dt: datetime) -> pd.Series:
     equeue_data = {
-        'year': load_dt.year,
-        'month': load_dt.month,
-        # 'week': load_dt.,
-        'load_dt': load_dt,
-        'car_number': equeue_entity['regnum'],
-        'status': equeue_entity['status'],
-        'queue_pos': equeue_entity['order_id'],
-        'queue_type': equeue_entity['type_queue'],
-        'reg_date': datetime.strptime(equeue_entity['registration_date'], '%H:%M:%S %d.%m.%Y'),
-        'changed_date': datetime.strptime(equeue_entity['changed_date'], '%H:%M:%S %d.%m.%Y')
+        ct.YEAR_COLUMN: load_dt.year,
+        ct.MONTH_COLUMN: load_dt.month,
+        ct.LOAD_DATE_COLUMN: load_dt,
+        ct.CAR_NUMBER_COLUMN: equeue_entity['regnum'],
+        ct.STATUS_COLUMN: equeue_entity['status'],
+        ct.QUEUE_POS_COLUMN: equeue_entity['order_id'],
+        ct.QUEUE_TYPE_COLUMN: equeue_entity['type_queue'],
+        ct.REGISTRATION_DATE_COLUMN: datetime.strptime(equeue_entity['registration_date'], '%H:%M:%S %d.%m.%Y'),
+        ct.CHANGED_DATE_COLUMN: datetime.strptime(equeue_entity['changed_date'], '%H:%M:%S %d.%m.%Y')
     }
     assert sorted(equeue_data.keys()) == sorted(ct.EQUEUE_COLUMNS), 'not all columns are set'
     return pd.Series(equeue_data)
@@ -26,17 +25,17 @@ def convert_equeue_entity_to_pandas(equeue_entity: tp.Dict, load_dt: datetime) -
 
 def convert_equeue_info_to_pandas(equeue_info: tp.Dict, load_dt: datetime) -> pd.Series:
     return pd.Series({
-        'year': load_dt.year,
-        'month': load_dt.month,
-        'load_dt': load_dt,
-        'id': equeue_info['id'],
-        'name': equeue_info['nameEn'],
-        'address': equeue_info['address'],
-        'phone': equeue_info['phone'],
-        'is_brest': equeue_info['isBts'],
-        'name_ru': equeue_info['name'],
-        'hash': hash('_'.join(map(str, [equeue_info['id'], equeue_info['nameEn'], equeue_info['address'],
-                                        equeue_info['phone'], equeue_info['isBts'], equeue_info['name']])))
+        ct.YEAR_COLUMN: load_dt.year,
+        ct.MONTH_COLUMN: load_dt.month,
+        ct.LOAD_DATE_COLUMN: load_dt,
+        ct.INFO_ID_COLUMN: equeue_info['id'],
+        ct.INFO_NAME_COLUMN: equeue_info['nameEn'],
+        ct.INFO_ADDRESS_COLUMN: equeue_info['address'],
+        ct.INFO_PHONE_COLUMN: equeue_info['phone'],
+        ct.INFO_IS_BREST_COLUMN: equeue_info['isBts'],
+        ct.INFO_NAME_RU_COLUMN: equeue_info['name'],
+        ct.INFO_HASH_COLUMN: hash('_'.join(map(str, [equeue_info['id'], equeue_info['nameEn'], equeue_info['address'],
+                                                     equeue_info['phone'], equeue_info['isBts'], equeue_info['name']])))
     })
 
 
@@ -47,14 +46,14 @@ def convert_to_pandas_equeue(equeue_snapshot_dict: tp.Dict) -> EqueueData:
             grouped_entities = pd.concat([convert_equeue_entity_to_pandas(equeue_entity=entity, load_dt=load_dt)
                                           for entity in all_entities], axis=1).T
             grouped_entities = grouped_entities.astype({
-                'load_dt': 'datetime64[us]',
-                'reg_date': 'datetime64[us]',
-                'changed_date': 'datetime64[us]',
-                'year': 'int32',
-                'month': 'int32',
-                'status': 'int64',
-                'queue_pos': 'float64',
-                'queue_type': 'int32'
+                ct.YEAR_COLUMN: 'int32',
+                ct.MONTH_COLUMN: 'int32',
+                ct.LOAD_DATE_COLUMN: 'datetime64[us]',
+                ct.REGISTRATION_DATE_COLUMN: 'datetime64[us]',
+                ct.CHANGED_DATE_COLUMN: 'datetime64[us]',
+                ct.STATUS_COLUMN: 'int64',
+                ct.QUEUE_POS_COLUMN: 'float64',
+                ct.QUEUE_TYPE_COLUMN: 'int32'
             })
         return grouped_entities
 

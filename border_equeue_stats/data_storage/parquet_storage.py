@@ -26,8 +26,8 @@ def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: s
                 #     batching_kwargs['columns'] = ct.EQUEUE_COLUMNS
                 for batch in pq_file.iter_batches(**batching_kwargs):
                     batch_df = batch.to_pandas()
-                    batch_df['month'] = batch_df['load_dt'].apply(lambda l: l.month)
-                    batch_df['year'] = batch_df['load_dt'].apply(lambda l: l.year)
+                    batch_df[ct.MONTH_COLUMN] = batch_df[ct.LOAD_DATE_COLUMN].apply(lambda l: l.month)
+                    batch_df[ct.YEAR_COLUMN] = batch_df[ct.LOAD_DATE_COLUMN].apply(lambda l: l.year)
                     yield batch_df
         else:
             yield dataset.read().to_pandas()
@@ -66,7 +66,7 @@ def read_all_from_parquet(filters: tp.Optional = None,
 
 def read_parquet_info_data(filter_hash: tp.Optional[str] = None,
                            parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> tp.Optional[pd.DataFrame]:
-    filters = None if filter_hash is None else [('hash', '==', filter_hash)]
+    filters = None if filter_hash is None else [(ct.INFO_HASH_COLUMN, '==', filter_hash)]
     df = list(read_from_parquet(name=ct.INFO_KEY,
                                 parquet_storage_path=parquet_storage_path,
                                 filters=filters,
@@ -91,15 +91,17 @@ def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_P
             # TODO: check None values in queue_pos column
             table = pa.Table.from_pandas(df)
             pq.write_to_dataset(table, root_path=os.path.join(parquet_storage_path, name),
-                                partition_cols=['year', 'month'], file_visitor=file_visitor)
+                                partition_cols=ct.PARTITION_COLUMNS, file_visitor=file_visitor)
         else:
             print(f"Skipping empty {name}..")
 
     def dump_info(info: tp.Union[pd.Series, pd.DataFrame]):
         if isinstance(info, pd.Series):
             info = info.to_frame().T
-        info['is_stored'] = info['hash'].apply(lambda h: is_info_stored(filter_hash=h,
-                                                                        parquet_storage_path=parquet_storage_path))
+        info['is_stored'] = info[ct.INFO_HASH_COLUMN].apply(lambda h: is_info_stored(
+            filter_hash=h,
+            parquet_storage_path=parquet_storage_path
+        ))
         not_stored_info = info[~info['is_stored']].drop('is_stored', axis=1)
         dump_single_df(not_stored_info, name=ct.INFO_KEY)
 
@@ -127,7 +129,7 @@ def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PAT
         dump_to_parquet(line_dict, parquet_storage_path=parquet_storage_path)
 
 
-def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH, target_rows_per_file: int = 300000):
+def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
     def has_many_files(dt, path: str):
         all_files = dt.files
         unq_partitions = set()
@@ -156,7 +158,7 @@ def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH, t
             if df is not None:
                 table = pa.Table.from_pandas(df)
                 pq.write_to_dataset(table, root_path=os.path.join(tmp_parquet_storage_path, name),
-                                    partition_cols=['year', 'month'], file_visitor=file_visitor)
+                                    partition_cols=ct.PARTITION_COLUMNS, file_visitor=file_visitor)
 
     shutil.rmtree(parquet_storage_path)
     # os.rename(parquet_storage_path, parquet_storage_path + '_backup')
