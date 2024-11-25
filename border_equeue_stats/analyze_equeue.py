@@ -3,7 +3,8 @@ import json
 import plotly.express as px
 import typing as tp
 from border_equeue_stats import constants as ct
-from border_equeue_stats.queue_stats import get_waiting_time, get_count, get_count_by_regions
+from border_equeue_stats.queue_stats import get_waiting_time, get_count, get_count_by_regions, \
+    get_single_vehicle_registrations_count
 
 
 def plot_waiting_hours(queues_names, relative_time):
@@ -65,6 +66,20 @@ def plot_vehicle_count_per_regions(queue_name: str = ct.CAR_LIVE_QUEUE_KEY, plot
                       color='region',
                       line_group='region')
     fig.show()
+
+
+def plot_frequent_vehicles_registrations_count(queue_name: str = ct.CAR_LIVE_QUEUE_KEY, has_been_called: bool = False):
+    filtering_date = '2024-09-01'
+    reg_freq_df = get_single_vehicle_registrations_count(queue_name=queue_name,
+                                                         has_been_called=has_been_called,
+                                                         filters=[(ct.LOAD_DATE_COLUMN, '>=',
+                                                                   datetime.strptime(filtering_date,
+                                                                                     '%Y-%m-%d'))])
+    reg_freq_df['count_names'] = reg_freq_df['count_of_registrations'].apply(
+        lambda c: f"{c} time(s) were in queue ({filtering_date} - {datetime.today().date()})"
+    )
+    px.pie(reg_freq_df, values='vehicle_count', names='count_names').show()
+    # px.bar(reg_freq_df, x='count_of_registrations', y='vehicle_count').show()
 
 
 def plot_cars_cnt():
