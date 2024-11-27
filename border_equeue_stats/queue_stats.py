@@ -157,7 +157,7 @@ def get_single_vehicle_registrations_count(queue_name: str,
                                            filters: tp.Optional[tp.List] = None,
                                            has_been_called: bool = False) -> pd.DataFrame:
     """
-    Returns DataFrame with vehicles grouped by registration counts where count >1.
+    Returns DataFrame with vehicles grouped by registration counts.
 
     :param queue_name: str - queue which will be stored into the dataframe
     :param filters: Optional[List[str]] - parquet data filters
@@ -182,9 +182,9 @@ def get_single_vehicle_registrations_count(queue_name: str,
             columns=[ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN, ct.STATUS_COLUMN]
         ))[0]
         queue_df = queue_df.drop_duplicates()
-        queue_df = queue_df\
-            .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN])\
-            .apply(lambda gr: pd.Series({'is_canceled': 9 in gr[ct.STATUS_COLUMN]})).reset_index()
+        queue_df = queue_df \
+            .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
+            .apply(lambda gr: pd.Series({'is_canceled': any(gr[ct.STATUS_COLUMN] == 9)})).reset_index()
         queue_df = queue_df[queue_df['is_canceled'] == False].reset_index()
     else:
         queue_df = list(read_from_parquet(
@@ -200,3 +200,66 @@ def get_single_vehicle_registrations_count(queue_name: str,
     queue_df = queue_df.rename(columns={ct.REGISTRATION_DATE_COLUMN: 'count_of_registrations',
                                         ct.CAR_NUMBER_COLUMN: 'vehicle_count'})
     return queue_df[['vehicle_count', 'count_of_registrations']]
+
+
+def get_max_called_waiting_time(queues_names: tp.List[str],
+                                filters: tp.Optional[tp.List] = None,
+                                aggregation_type: str = 'min') -> pd.DataFrame:
+    """
+    Returns DataFrame with maximum waiting minutes per load date.
+
+    :param queues_names: List[str] - queues which will be stored into the dataframe
+    :param filters: Optional[List[str]] - parquet data filters
+    :param aggregation_type: str - max/min/mean - aggregation of waiting_after_called
+                                   for all cars with the same relative_time
+    :return:
+        DataFrame columns:
+        (1) relative_time - last changed status date, when a car was called
+        (2) waiting_after_called - how many minutes a car waited in status called before removed from queue
+        (3) queue_name - name of the queue for the specific row
+    """
+    def read_queue(qname):
+        queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
+        if filters is not None:
+            read_filters = filters_to_expression(filters)
+            read_filters = read_filters & queue_pos_filter_expr
+        else:
+            read_filters = queue_pos_filter_expr
+        queue_df = list(read_from_parquet(
+            qname,
+            filters=read_filters,
+            parquet_storage_path=ct.PARQUET_STORAGE_PATH,
+            in_batches=False,
+            columns=[ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN, ct.STATUS_COLUMN,
+                     ct.CHANGED_DATE_COLUMN, ct.LOAD_DATE_COLUMN]
+        ))[0]
+        # queue_df = queue_df.groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN,
+        #                              ct.STATUS_COLUMN, ct.CHANGED_DATE_COLUMN]).aggregate({ct.LOAD_DATE_COLUMN: 'max'})
+        # queue_df = queue_df \
+        #     .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
+        #     .apply(lambda gr: pd.Series({
+        #         'is_canceled': 9 in gr[ct.STATUS_COLUMN],
+        #         ct.CHANGED_DATE_COLUMN: min(ct.CHANGED_DATE_COLUMN),
+        #         ct.LOAD_DATE_COLUMN: 'max'}))\
+        #     .reset_index()
+        queue_df = queue_df \
+            .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
+            .aggregate({
+                ct.STATUS_COLUMN: lambda st: any(st == 9),
+                ct.CHANGED_DATE_COLUMN: 'min',
+                ct.LOAD_DATE_COLUMN: 'max'}) \
+            .reset_index()
+
+        queue_df = queue_df[queue_df[ct.STATUS_COLUMN] == False]
+        queue_df = queue_df.groupby(ct.CHANGED_DATE_COLUMN).aggregate({ct.LOAD_DATE_COLUMN: aggregation_type}).reset_index()
+        queue_df['waiting_after_called'] = queue_df[ct.LOAD_DATE_COLUMN] - queue_df[ct.CHANGED_DATE_COLUMN]
+        queue_df['waiting_after_called'] = queue_df['waiting_after_called'].apply(
+            lambda mw: round(mw.total_seconds() / 60, 2))
+
+        queue_df['queue_name'] = qname
+        return queue_df.rename(columns={
+            ct.CHANGED_DATE_COLUMN: 'relative_time'
+        })[['relative_time', 'waiting_after_called', 'queue_name']].sort_values('relative_time')
+
+    assert aggregation_type in {'max', 'min', 'mean'}
+    return pd.concat([read_queue(qname) for qname in queues_names], axis=0)

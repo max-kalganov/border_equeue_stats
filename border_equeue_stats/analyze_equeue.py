@@ -4,7 +4,7 @@ import plotly.express as px
 import typing as tp
 from border_equeue_stats import constants as ct
 from border_equeue_stats.queue_stats import get_waiting_time, get_count, get_count_by_regions, \
-    get_single_vehicle_registrations_count
+    get_single_vehicle_registrations_count, get_max_called_waiting_time
 
 
 def plot_waiting_hours(queues_names, relative_time):
@@ -56,7 +56,7 @@ def plot_vehicle_count_per_regions(queue_name: str = ct.CAR_LIVE_QUEUE_KEY, plot
                                   region="Regions"),
                       color='region')
     else:
-        df = get_count_by_regions(queue_name=queue_name)#, floor_value='d')
+        df = get_count_by_regions(queue_name=queue_name)  # , floor_value='d')
         fig = px.area(df,
                       x='relative_time',
                       y='vehicle_count',
@@ -80,6 +80,18 @@ def plot_frequent_vehicles_registrations_count(queue_name: str = ct.CAR_LIVE_QUE
     )
     px.pie(reg_freq_df, values='vehicle_count', names='count_names').show()
     # px.bar(reg_freq_df, x='count_of_registrations', y='vehicle_count').show()
+
+
+def plot_called_status_waiting_time(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.CAR_PRIORITY_KEY),
+                                    aggregation_type: str = 'min'):
+    waiting_df = get_max_called_waiting_time(queues_names=queues_names, aggregation_type=aggregation_type)
+    px.line(waiting_df,
+            x='relative_time',
+            y='waiting_after_called',
+            labels=dict(relative_time="Called to the border",
+                        waiting_after_called="Minutes waited after called",
+                        queue_name="Queue types"),
+            color='queue_name').show()
 
 
 def plot_cars_cnt():
