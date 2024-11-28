@@ -9,6 +9,22 @@ from border_equeue_stats import constants as ct
 from border_equeue_stats.data_storage.parquet_storage import read_from_parquet
 
 
+def check_queue_names(queues_names: tp.List[str]):
+    unq_queue_names = set(queues_names)
+    assert (len(queues_names) > 0
+            and len(ct.ALL_EQUEUE_KEYS) > len(queues_names) == len(unq_queue_names)
+            and ct.INFO_KEY not in unq_queue_names
+            and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
+        'incorrect queue names for get_waiting_time'
+
+
+def check_single_queue_name(queue_name: str):
+    assert (isinstance(queue_name, str)
+            and queue_name in ct.ALL_EQUEUE_KEYS
+            and queue_name != ct.INFO_KEY), \
+        'incorrect queue names for get_count_by_regions'
+
+
 def get_waiting_time(queues_names: tp.List[str],
                      relative_time: str = 'reg',
                      filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
@@ -55,14 +71,8 @@ def get_waiting_time(queues_names: tp.List[str],
         return queue_df[['relative_time', 'hours_waited',
                          'first_vehicle_number', 'queue_name']].sort_values('relative_time')
 
-    unq_queue_names = set(queues_names)
-    assert (len(queues_names) > 0
-            and len(ct.ALL_EQUEUE_KEYS) > len(queues_names) == len(unq_queue_names)
-            and ct.INFO_KEY not in unq_queue_names
-            and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
-        'incorrect queue names for get_waiting_time'
+    check_queue_names(queues_names)
     assert relative_time in {'reg', 'load'}
-
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
 
 
@@ -97,13 +107,7 @@ def get_count(queues_names: tp.List[str],
         queue_df['queue_name'] = name
         return queue_df[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
 
-    unq_queue_names = set(queues_names)
-    assert (len(queues_names) > 0
-            and len(ct.ALL_EQUEUE_KEYS) > len(queues_names) == len(unq_queue_names)
-            and ct.INFO_KEY not in unq_queue_names
-            and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
-        'incorrect queue names for get_count'
-
+    check_queue_names(queues_names)
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
 
 
@@ -122,10 +126,7 @@ def get_count_by_regions(queue_name: str,
         (2) vehicle_count - number of ordered vehicles in queue at a specific load date
         (3) region - region label
     """
-    assert (isinstance(queue_name, str)
-            and queue_name in ct.ALL_EQUEUE_KEYS
-            and queue_name != ct.INFO_KEY), \
-        'incorrect queue names for get_count_by_regions'
+    check_single_queue_name(queue_name)
 
     read_filters = filters if filters is not None else []
     read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
@@ -167,6 +168,7 @@ def get_single_vehicle_registrations_count(queue_name: str,
         (1) count_of_registrations - number of registration of a vehicle in queue
         (2) vehicle_count - number of ordered vehicles in queue at a specific load date
     """
+    check_single_queue_name(queue_name)
     if has_been_called:
         queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
         if filters is not None:
@@ -202,11 +204,11 @@ def get_single_vehicle_registrations_count(queue_name: str,
     return queue_df[['vehicle_count', 'count_of_registrations']]
 
 
-def get_max_called_waiting_time(queues_names: tp.List[str],
-                                filters: tp.Optional[tp.List] = None,
-                                aggregation_type: str = 'min') -> pd.DataFrame:
+def get_called_vehicles_waiting_time(queues_names: tp.List[str],
+                                     filters: tp.Optional[tp.List] = None,
+                                     aggregation_type: str = 'min') -> pd.DataFrame:
     """
-    Returns DataFrame with maximum waiting minutes per load date.
+    Returns DataFrame with waiting minutes per date.
 
     :param queues_names: List[str] - queues which will be stored into the dataframe
     :param filters: Optional[List[str]] - parquet data filters
@@ -218,6 +220,7 @@ def get_max_called_waiting_time(queues_names: tp.List[str],
         (2) waiting_after_called - how many minutes a car waited in status called before removed from queue
         (3) queue_name - name of the queue for the specific row
     """
+
     def read_queue(qname):
         queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
         if filters is not None:
@@ -233,25 +236,17 @@ def get_max_called_waiting_time(queues_names: tp.List[str],
             columns=[ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN, ct.STATUS_COLUMN,
                      ct.CHANGED_DATE_COLUMN, ct.LOAD_DATE_COLUMN]
         ))[0]
-        # queue_df = queue_df.groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN,
-        #                              ct.STATUS_COLUMN, ct.CHANGED_DATE_COLUMN]).aggregate({ct.LOAD_DATE_COLUMN: 'max'})
-        # queue_df = queue_df \
-        #     .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
-        #     .apply(lambda gr: pd.Series({
-        #         'is_canceled': 9 in gr[ct.STATUS_COLUMN],
-        #         ct.CHANGED_DATE_COLUMN: min(ct.CHANGED_DATE_COLUMN),
-        #         ct.LOAD_DATE_COLUMN: 'max'}))\
-        #     .reset_index()
         queue_df = queue_df \
             .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
             .aggregate({
-                ct.STATUS_COLUMN: lambda st: any(st == 9),
-                ct.CHANGED_DATE_COLUMN: 'min',
-                ct.LOAD_DATE_COLUMN: 'max'}) \
+            ct.STATUS_COLUMN: lambda st: any(st == 9),
+            ct.CHANGED_DATE_COLUMN: 'min',
+            ct.LOAD_DATE_COLUMN: 'max'}) \
             .reset_index()
 
         queue_df = queue_df[queue_df[ct.STATUS_COLUMN] == False]
-        queue_df = queue_df.groupby(ct.CHANGED_DATE_COLUMN).aggregate({ct.LOAD_DATE_COLUMN: aggregation_type}).reset_index()
+        queue_df = queue_df.groupby(ct.CHANGED_DATE_COLUMN).aggregate(
+            {ct.LOAD_DATE_COLUMN: aggregation_type}).reset_index()
         queue_df['waiting_after_called'] = queue_df[ct.LOAD_DATE_COLUMN] - queue_df[ct.CHANGED_DATE_COLUMN]
         queue_df['waiting_after_called'] = queue_df['waiting_after_called'].apply(
             lambda mw: round(mw.total_seconds() / 60, 2))
@@ -261,5 +256,93 @@ def get_max_called_waiting_time(queues_names: tp.List[str],
             ct.CHANGED_DATE_COLUMN: 'relative_time'
         })[['relative_time', 'waiting_after_called', 'queue_name']].sort_values('relative_time')
 
+    check_queue_names(queues_names)
     assert aggregation_type in {'max', 'min', 'mean'}
+    return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
+
+
+def get_number_of_declined_vehicles(queues_names: tp.List[str],
+                                    filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+    """
+    Returns DataFrame with number of declined vehicles.
+
+    :param queues_names: List[str] - queues which will be stored into the dataframe
+    :param filters: Optional[List[str]] - parquet data filters
+    :return:
+        DataFrame columns:
+        (1) relative_time - load date
+        (2) vehicle_count - number of declined vehicles
+        (3) queue_name - name of the queue for the specific row
+    """
+    def read_queue(qname):
+        vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 9
+
+        if filters is not None:
+            read_filters = filters_to_expression(filters)
+            read_filters = read_filters & vehicle_type_filter_expr
+        else:
+            read_filters = vehicle_type_filter_expr
+        queue_df = list(read_from_parquet(
+            qname,
+            filters=read_filters,
+            parquet_storage_path=ct.PARQUET_STORAGE_PATH,
+            in_batches=False,
+            columns=[ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
+        ))[0]
+        queue_df = queue_df\
+            .drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN])\
+            .groupby(ct.LOAD_DATE_COLUMN)\
+            .count().reset_index()
+        queue_df['queue_name'] = qname
+        return queue_df.rename(columns={
+            ct.LOAD_DATE_COLUMN: 'relative_time',
+            ct.CAR_NUMBER_COLUMN: 'vehicle_count'
+        })[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
+
+    check_queue_names(queues_names)
+    return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
+
+
+def get_registered_per_hour(queues_names: tp.List[str],
+                            filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+    """
+    Returns DataFrame with number of registered vehicles per hour.
+
+    :param queues_names: List[str] - queues which will be stored into the dataframe
+    :param filters: Optional[List[str]] - parquet data filters
+    :return:
+        DataFrame columns:
+        (1) relative_time - registered date to hours
+        (2) vehicle_count - number of registered vehicles
+        (3) queue_name - name of the queue for the specific row
+    """
+    def read_queue(qname):
+        vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 2
+
+        if filters is not None:
+            read_filters = filters_to_expression(filters)
+            read_filters = read_filters & vehicle_type_filter_expr
+        else:
+            read_filters = vehicle_type_filter_expr
+        queue_df = list(read_from_parquet(
+            qname,
+            filters=read_filters,
+            parquet_storage_path=ct.PARQUET_STORAGE_PATH,
+            in_batches=False,
+            columns=[ct.REGISTRATION_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
+        ))[0]
+        queue_df = queue_df.drop_duplicates()
+        queue_df[ct.REGISTRATION_DATE_COLUMN] = queue_df[ct.REGISTRATION_DATE_COLUMN]\
+            .apply(lambda t: t.floor('h'))
+
+        queue_df = queue_df\
+            .groupby(ct.REGISTRATION_DATE_COLUMN)\
+            .count().reset_index()
+        queue_df['queue_name'] = qname
+        return queue_df.rename(columns={
+            ct.REGISTRATION_DATE_COLUMN: 'relative_time',
+            ct.CAR_NUMBER_COLUMN: 'vehicle_count'
+        })[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
+
+    check_queue_names(queues_names)
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)

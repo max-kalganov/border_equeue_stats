@@ -4,7 +4,8 @@ import plotly.express as px
 import typing as tp
 from border_equeue_stats import constants as ct
 from border_equeue_stats.queue_stats import get_waiting_time, get_count, get_count_by_regions, \
-    get_single_vehicle_registrations_count, get_max_called_waiting_time
+    get_single_vehicle_registrations_count, get_called_vehicles_waiting_time, get_number_of_declined_vehicles, \
+    get_registered_per_hour
 
 
 def plot_waiting_hours(queues_names, relative_time):
@@ -84,12 +85,34 @@ def plot_frequent_vehicles_registrations_count(queue_name: str = ct.CAR_LIVE_QUE
 
 def plot_called_status_waiting_time(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.CAR_PRIORITY_KEY),
                                     aggregation_type: str = 'min'):
-    waiting_df = get_max_called_waiting_time(queues_names=queues_names, aggregation_type=aggregation_type)
+    waiting_df = get_called_vehicles_waiting_time(queues_names=queues_names, aggregation_type=aggregation_type)
     px.line(waiting_df,
             x='relative_time',
             y='waiting_after_called',
             labels=dict(relative_time="Called to the border",
                         waiting_after_called="Minutes waited after called",
+                        queue_name="Queue types"),
+            color='queue_name').show()
+
+
+def plot_declined_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.BUS_LIVE_QUEUE_KEY)):
+    declined_df = get_number_of_declined_vehicles(queues_names=queues_names)
+    px.line(declined_df,
+            x='relative_time',
+            y='vehicle_count',
+            labels=dict(relative_time="Queue dump date",
+                        vehicle_count="Number of declined vehicles",
+                        queue_name="Queue types"),
+            color='queue_name').show()
+
+
+def plot_registered_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.BUS_LIVE_QUEUE_KEY)):
+    registered_df = get_registered_per_hour(queues_names=queues_names)
+    px.line(registered_df,
+            x='relative_time',
+            y='vehicle_count',
+            labels=dict(relative_time="Registered time to hours",
+                        vehicle_count="Number of registered vehicles",
                         queue_name="Queue types"),
             color='queue_name').show()
 
