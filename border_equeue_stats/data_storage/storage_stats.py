@@ -22,15 +22,13 @@ def get_files(queue_name: tp.Optional[str] = None) -> tp.List[str]:
     return list(chain(*[get_dataset_files(q) for q in queues]))
 
 
-def get_files_size(queue_name: tp.Optional[str] = None,
-                   filters: tp.Optional[tp.List] = None) -> int:
+def get_files_size(queue_name: tp.Optional[str] = None) -> int:
     """Returns total dataset files size in bytes.
 
     :param queue_name: Optional[str] - queue name. If queue_name is None, returns size of all datasets
-    :param filters: Optional[List[str]] - parquet data filters
     :return size in bytes
     """
-    raise NotImplementedError
+    return sum(os.path.getsize(dataset_file) for dataset_file in get_files(queue_name))
 
 
 
