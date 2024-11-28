@@ -274,6 +274,7 @@ def get_number_of_declined_vehicles(queues_names: tp.List[str],
         (2) vehicle_count - number of declined vehicles
         (3) queue_name - name of the queue for the specific row
     """
+
     def read_queue(qname):
         vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 9
 
@@ -289,9 +290,9 @@ def get_number_of_declined_vehicles(queues_names: tp.List[str],
             in_batches=False,
             columns=[ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
         ))[0]
-        queue_df = queue_df\
-            .drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN])\
-            .groupby(ct.LOAD_DATE_COLUMN)\
+        queue_df = queue_df \
+            .drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]) \
+            .groupby(ct.LOAD_DATE_COLUMN) \
             .count().reset_index()
         queue_df['queue_name'] = qname
         return queue_df.rename(columns={
@@ -303,19 +304,22 @@ def get_number_of_declined_vehicles(queues_names: tp.List[str],
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
 
 
-def get_registered_per_hour(queues_names: tp.List[str],
-                            filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+def get_registered_count(queues_names: tp.List[str],
+                         filters: tp.Optional[tp.List] = None,
+                         floor_value: str = 'h') -> pd.DataFrame:
     """
-    Returns DataFrame with number of registered vehicles per hour.
+    Returns DataFrame with number of registered vehicles.
 
     :param queues_names: List[str] - queues which will be stored into the dataframe
     :param filters: Optional[List[str]] - parquet data filters
+    :param floor_value: str - sets larger buckets for counting
     :return:
         DataFrame columns:
-        (1) relative_time - registered date to hours
+        (1) relative_time - registered date
         (2) vehicle_count - number of registered vehicles
         (3) queue_name - name of the queue for the specific row
     """
+
     def read_queue(qname):
         vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 2
 
@@ -332,15 +336,63 @@ def get_registered_per_hour(queues_names: tp.List[str],
             columns=[ct.REGISTRATION_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
         ))[0]
         queue_df = queue_df.drop_duplicates()
-        queue_df[ct.REGISTRATION_DATE_COLUMN] = queue_df[ct.REGISTRATION_DATE_COLUMN]\
-            .apply(lambda t: t.floor('h'))
+        queue_df[ct.REGISTRATION_DATE_COLUMN] = queue_df[ct.REGISTRATION_DATE_COLUMN] \
+            .apply(lambda t: t.floor(floor_value))
 
-        queue_df = queue_df\
-            .groupby(ct.REGISTRATION_DATE_COLUMN)\
+        queue_df = queue_df \
+            .groupby(ct.REGISTRATION_DATE_COLUMN) \
             .count().reset_index()
         queue_df['queue_name'] = qname
         return queue_df.rename(columns={
             ct.REGISTRATION_DATE_COLUMN: 'relative_time',
+            ct.CAR_NUMBER_COLUMN: 'vehicle_count'
+        })[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
+
+    check_queue_names(queues_names)
+    return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
+
+
+def get_called_count(queues_names: tp.List[str],
+                     filters: tp.Optional[tp.List] = None,
+                     floor_value: str = 'h') -> pd.DataFrame:
+    """
+    Returns DataFrame with number of called vehicles (time when vehicle status changed to 'called').
+
+    :param queues_names: List[str] - queues which will be stored into the dataframe
+    :param filters: Optional[List[str]] - parquet data filters
+    :param floor_value: str - sets larger buckets for counting
+    :return:
+        DataFrame columns:
+        (1) relative_time - changed status date
+        (2) vehicle_count - number of called vehicles
+        (3) queue_name - name of the queue for the specific row
+    """
+
+    def read_queue(qname):
+        vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 3
+
+        if filters is not None:
+            read_filters = filters_to_expression(filters)
+            read_filters = read_filters & vehicle_type_filter_expr
+        else:
+            read_filters = vehicle_type_filter_expr
+        queue_df = list(read_from_parquet(
+            qname,
+            filters=read_filters,
+            parquet_storage_path=ct.PARQUET_STORAGE_PATH,
+            in_batches=False,
+            columns=[ct.CHANGED_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
+        ))[0]
+        queue_df = queue_df.drop_duplicates()
+        queue_df[ct.CHANGED_DATE_COLUMN] = queue_df[ct.CHANGED_DATE_COLUMN] \
+            .apply(lambda t: t.floor(floor_value))
+
+        queue_df = queue_df \
+            .groupby(ct.CHANGED_DATE_COLUMN) \
+            .count().reset_index()
+        queue_df['queue_name'] = qname
+        return queue_df.rename(columns={
+            ct.CHANGED_DATE_COLUMN: 'relative_time',
             ct.CAR_NUMBER_COLUMN: 'vehicle_count'
         })[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
 

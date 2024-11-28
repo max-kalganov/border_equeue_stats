@@ -10,5 +10,6 @@ if __name__ == '__main__':
     # plot_frequent_vehicles_registrations_count(has_been_called=True)
     # plot_called_status_waiting_time(queues_names=[ct.CAR_LIVE_QUEUE_KEY, ct.BUS_LIVE_QUEUE_KEY,
     #                                               ct.MOTORCYCLE_LIVE_QUEUE_KEY], aggregation_type='mean')
-    # plot_declined_vehicles()
-    plot_registered_vehicles()
+    plot_declined_vehicles()
+    # plot_registered_vehicles()
+    # plot_called_vehicles()
