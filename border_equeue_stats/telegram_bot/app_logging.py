@@ -4,9 +4,23 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
+APP_MAIN_LOGGER_NAME = 'app_main'
+STAT_INTERFACE_LOGGER_NAME = 'stats_interface'
+APP_PUSH_NOTIFICATIONS_LOGGER_NAME = 'app_push_notification'
+
+ALL_MAIN_LOGGER_NAMES = {APP_MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME, APP_PUSH_NOTIFICATIONS_LOGGER_NAME}
+
+
+class AppMainLoggersFilter(logging.Filter):
+    def filter(self, record):
+        return record.name in ALL_MAIN_LOGGER_NAMES
+
 
 def get_all_messages_handler():
-    return logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    return handler
 
 
 def get_sys_log_handler():
@@ -15,6 +29,7 @@ def get_sys_log_handler():
                                   backupCount=2, encoding=None, delay=False)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
+    handler.addFilter(AppMainLoggersFilter())
     return handler
 
 
@@ -24,6 +39,7 @@ def set_root_logger():
     logger = logging.getLogger()
     logger.addHandler(all_stream_handler)
     logger.addHandler(system_info_logger)
+    logger.setLevel(logging.INFO)
 
 
 def get_user_logger(user_id, chat_id):
