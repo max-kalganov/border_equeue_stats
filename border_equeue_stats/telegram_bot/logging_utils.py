@@ -5,11 +5,7 @@ import logging
 import hashlib
 from logging.handlers import RotatingFileHandler
 
-APP_MAIN_LOGGER_NAME = 'app_main'
-STAT_INTERFACE_LOGGER_NAME = 'stats_interface'
-APP_PUSH_NOTIFICATIONS_LOGGER_NAME = 'app_push_notification'
-
-ALL_MAIN_LOGGER_NAMES = {APP_MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME, APP_PUSH_NOTIFICATIONS_LOGGER_NAME}
+from border_equeue_stats.constants import COMMON_LOGGERS
 
 
 class UserLogger(logging.Logger):
@@ -32,7 +28,7 @@ class UserLogger(logging.Logger):
 
 class AppMainLoggersFilter(logging.Filter):
     def filter(self, record):
-        return record.name in ALL_MAIN_LOGGER_NAMES
+        return record.name in COMMON_LOGGERS
 
 
 def get_all_messages_handler():

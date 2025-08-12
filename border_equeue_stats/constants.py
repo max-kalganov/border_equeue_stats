@@ -72,3 +72,12 @@ MOTORCYCLE_PRIORITY_KEY = 'motorcyclePriority'
 ALL_EQUEUE_KEYS = (INFO_KEY, TRUCK_LIVE_QUEUE_KEY, TRUCK_PRIORITY_KEY, TRUCK_GPK_KEY, BUS_LIVE_QUEUE_KEY,
                    BUS_PRIORITY_KEY, CAR_LIVE_QUEUE_KEY, CAR_PRIORITY_KEY, MOTORCYCLE_LIVE_QUEUE_KEY,
                    MOTORCYCLE_PRIORITY_KEY)
+
+##################################################################################################
+# Logger constants
+##################################################################################################
+
+MAIN_LOGGER_NAME = 'app_main'
+STAT_INTERFACE_LOGGER_NAME = 'stats_interface'
+PUSH_NOTIFICATIONS_LOGGER_NAME = 'app_push_notification'
+COMMON_LOGGERS = {MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME, PUSH_NOTIFICATIONS_LOGGER_NAME}
