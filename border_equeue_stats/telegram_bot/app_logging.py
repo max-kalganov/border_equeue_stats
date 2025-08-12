@@ -1,7 +1,8 @@
 """Contains logging implementation"""
-import logging
 import os
 import sys
+import logging
+import hashlib
 from logging.handlers import RotatingFileHandler
 
 APP_MAIN_LOGGER_NAME = 'app_main'
@@ -10,6 +11,24 @@ APP_PUSH_NOTIFICATIONS_LOGGER_NAME = 'app_push_notification'
 
 ALL_MAIN_LOGGER_NAMES = {APP_MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME, APP_PUSH_NOTIFICATIONS_LOGGER_NAME}
 
+
+class UserLogger(logging.Logger):
+  def __init__(self, user_id, level=logging.NOTSET):
+    name = 'user_logger'
+    super().__init__(name, level)
+    self.extra_info = {'user_id': user_id}
+    user_id_hash = hashlib.md5(str(user_id).encode()).hexdigest()
+    print(self.extra_info, user_id_hash)
+
+    users_logs_dir = os.path.join('logs', 'users_logs')
+    os.makedirs(users_logs_dir, exist_ok=True)
+    handler = RotatingFileHandler(os.path.join(users_logs_dir, f"{user_id_hash}.log"),
+                                  mode='a', maxBytes=5 * 1024 * 1024,
+                                  backupCount=2, encoding=None, delay=False)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    self.addHandler(handler)
+    
 
 class AppMainLoggersFilter(logging.Filter):
     def filter(self, record):
@@ -40,16 +59,3 @@ def set_root_logger():
     logger.addHandler(all_stream_handler)
     logger.addHandler(system_info_logger)
     logger.setLevel(logging.INFO)
-
-
-def get_user_logger(user_id, chat_id):
-    users_logs_dir = os.path.join('logs', 'users_logs')
-    os.makedirs(users_logs_dir, exist_ok=True)
-    handler = RotatingFileHandler(os.path.join(users_logs_dir, f"{hash(str(user_id) + str(chat_id))}.log"),
-                                  mode='a', maxBytes=5 * 1024 * 1024,
-                                  backupCount=2, encoding=None, delay=False)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger = logging.getLogger('user_log')
-    logger.addHandler(handler)
-    return logger
