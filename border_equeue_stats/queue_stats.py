@@ -12,17 +12,16 @@ from border_equeue_stats.data_storage.parquet_storage import read_from_parquet
 def check_queue_names(queues_names: tp.List[str]):
     unq_queue_names = set(queues_names)
     assert (len(queues_names) > 0
-            and len(ct.ALL_EQUEUE_KEYS) > len(queues_names) == len(unq_queue_names)
-            and ct.INFO_KEY not in unq_queue_names
-            and unq_queue_names < set(ct.ALL_EQUEUE_KEYS)), \
-        'incorrect queue names for get_waiting_time'
+            and len(queues_names) == len(unq_queue_names)
+            and all(check_single_queue_name(q) for q in queues_names)), \
+        f'incorrect queue names - {queues_names}'
 
 
 def check_single_queue_name(queue_name: str):
     assert (isinstance(queue_name, str)
             and queue_name in ct.ALL_EQUEUE_KEYS
             and queue_name != ct.INFO_KEY), \
-        'incorrect queue names for get_count_by_regions'
+        f'incorrect queue name - {queue_name}'
 
 
 def get_waiting_time(queues_names: tp.List[str],
@@ -35,7 +34,7 @@ def get_waiting_time(queues_names: tp.List[str],
 
     Notes:
         The following details are using 'car' in description. Car is given as an example,
-        if queue_names contains 'carLiveQueue' or 'carPriority', otherwise it could be replaced with
+        when queue_names contains 'carLiveQueue' or 'carPriority', otherwise it could be replaced with
         truck/bus/motorcycle.
 
     :param queues_names: List[str] - list of queues which will be in the
