@@ -18,7 +18,8 @@ BELARUS_REGIONS_MAP = {
     '4': 'Grodno Region',
     '5': 'Minsk Region',
     '6': 'Mogilev Region',
-    '7': 'Minsk City'
+    '7': 'Minsk City',
+    '8': 'Minsk City'
 }
 
 EQUEUE_STATUSES_MAP = {
