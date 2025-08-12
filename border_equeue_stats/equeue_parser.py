@@ -4,6 +4,8 @@ import requests
 import json
 from datetime import datetime
 
+from border_equeue_stats.constants import EQUEUE_JSON_PATH
+
 
 def beautiful_soup_parser():
     from bs4 import BeautifulSoup
@@ -19,8 +21,7 @@ def beautiful_soup_parser():
 
 
 def direct_parser():
-    results = requests.get('https://belarusborder.by/info/'
-                          'monitoring-new?token=test&checkpointId=a9173a85-3fc0-424c-84f0-defa632481e4')
+    results = requests.get(EQUEUE_JSON_PATH)
     equeue = json.loads(results.text)
     equeue['datetime'] = str(datetime.now())
     with open('../data/brest_border_equeue.txt', 'a') as f:
