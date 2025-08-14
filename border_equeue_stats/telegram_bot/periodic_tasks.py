@@ -16,7 +16,7 @@ logger = logging.getLogger(PERIODIC_TASKS_LOGGER_NAME)
 
 
 def remove_job_if_exists(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Удаляет задание с указанным именем. Возвращает, было ли задание удалено."""
+    """Removes job with specified name. Returns True if job was removed."""
     current_jobs = context.job_queue.get_jobs_by_name(name)
     if not current_jobs:
         return False
@@ -26,21 +26,18 @@ def remove_job_if_exists(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
 
 
 async def set_dumper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Добавляет задание в очередь."""
-    user_logger = UserLogger(update.effective_user.id)
-    user_logger.info("Running set_dumper")
+    """Adds job to the queue."""
+    logger.info(f"Running set_dumper -- user: {hash_user_id(update.effective_user.id)}")
     chat_id = update.effective_message.chat_id
     try:
-        # TODO: check user
-        # args[0] должен содержать время таймера в секундах.
+        # args[0] should contain time in seconds.
         due = float(context.args[0])
         if due < 0:
-            await update.effective_message.reply_text("Извините, нельзя вернуться в будущее!")
+            await update.effective_message.reply_text("Incorrect time in seconds!")
             return
 
-        # args[0] должен содержать время таймера в секундах.
         job_removed = remove_job_if_exists(str(chat_id), context)
-        context.job_queue.run_repeating(periodic_processor, interval=timedelta(seconds=due), chat_id=chat_id,
+        context.job_queue.run_repeating(dump_equeue_stats_task, interval=timedelta(seconds=due), chat_id=chat_id,
                                         name=str(chat_id), data=None)
 
         text = "Timer successfully set!"
@@ -49,42 +46,26 @@ async def set_dumper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.effective_message.reply_text(text)
 
     except (IndexError, ValueError):
-        await update.effective_message.reply_text("Используйте: /set_dumper <seconds>")
+        await update.effective_message.reply_text("Use: /set_dumper <seconds>")
 
 
-async def periodic_processor(context):
+async def dump_equeue_stats_task(context):
     """Background task that processes queue data periodically."""
     try:
-        logger.info(f"Running periodic processor at {datetime.now()}")
-
-        # Add your queue processing logic here
-        # For example:
-        # - Parse equeue data
-        # - Update statistics
-        # - Send notifications
-        # - Clean up old data
-
-        # Example processing (replace with your actual logic):
-        # from border_equeue_stats.equeue_parser import parse_equeue
-        # from border_equeue_stats.data_storage.parquet_storage import dump_to_parquet
-        # from border_equeue_stats.constants import EQUEUE_JSON_PATH
-        #
-        # data = parse_equeue(url=EQUEUE_JSON_PATH)
-        # dump_to_parquet(data)
-
-        logger.info("Periodic processor completed successfully")
+        logger.info(f"Dumping equeue stats at {datetime.now()}")
+        dump_to_parquet(parse_equeue(url=EQUEUE_JSON_PATH))
+        logger.info("Dumping equeue stats completed successfully")
 
     except Exception as e:
-        logger.error(f"Error in periodic processor: {e}")
-    await context.bot.send_message(context.job.chat_id, text="Complete peridic processor")
+        logger.error(f"Error in dumping equeue stats: {e}")
+    await context.bot.send_message(context.job.chat_id, text="Complete dumping equeue stats")
 
 
 async def unset_dumper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Удаляет задание, если пользователь передумал."""
-    user_logger = UserLogger(update.effective_user.id)
-    user_logger.info("Running unset_dumper")
+    """Removes job if user wants to stop it."""
+    logger.info(f"Running unset_dumper -- user: {hash_user_id(update.effective_user.id)}")
 
     chat_id = update.message.chat_id
     job_removed = remove_job_if_exists(str(chat_id), context)
-    text = "Таймер успешно отменен!" if job_removed else "Нет активного таймера."
+    text = "Timer successfully removed!" if job_removed else "No active timer."
     await update.message.reply_text(text)

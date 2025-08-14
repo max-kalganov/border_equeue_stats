@@ -18,7 +18,7 @@ def check_queue_names(queues_names: tp.List[str]):
 
 
 def check_single_queue_name(queue_name: str):
-    assert (isinstance(queue_name, str)
+    return (isinstance(queue_name, str)
             and queue_name in ct.ALL_EQUEUE_KEYS
             and queue_name != ct.INFO_KEY), \
         f'incorrect queue name - {queue_name}'
@@ -125,7 +125,7 @@ def get_count_by_regions(queue_name: str,
         (2) vehicle_count - number of ordered vehicles in queue at a specific load date
         (3) region - region label
     """
-    check_single_queue_name(queue_name)
+    assert check_single_queue_name(queue_name) is True, f'incorrect queue_name: {queue_name}'
 
     read_filters = filters if filters is not None else []
     read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
@@ -167,7 +167,7 @@ def get_single_vehicle_registrations_count(queue_name: str,
         (1) count_of_registrations - number of registration of a vehicle in queue
         (2) vehicle_count - number of ordered vehicles in queue at a specific load date
     """
-    check_single_queue_name(queue_name)
+    assert check_single_queue_name(queue_name) is True, f'incorrect queue_name: {queue_name}'
     if has_been_called:
         queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
         if filters is not None:
