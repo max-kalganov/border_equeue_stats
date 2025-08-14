@@ -4,10 +4,15 @@ from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from border_equeue_stats.constants import MAIN_LOGGER_NAME
-from border_equeue_stats.telegram_bot.logging_utils import UserLogger
+from border_equeue_stats.constants import PERIODIC_TASKS_LOGGER_NAME
+from border_equeue_stats.telegram_bot.logging_utils import hash_user_id
 
-logger = logging.getLogger(MAIN_LOGGER_NAME)
+from border_equeue_stats.equeue_parser import parse_equeue
+from border_equeue_stats.data_storage.parquet_storage import dump_to_parquet
+from border_equeue_stats.constants import EQUEUE_JSON_PATH
+
+
+logger = logging.getLogger(PERIODIC_TASKS_LOGGER_NAME)
 
 
 def remove_job_if_exists(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
