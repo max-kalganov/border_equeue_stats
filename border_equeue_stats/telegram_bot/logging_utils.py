@@ -8,13 +8,16 @@ from logging.handlers import RotatingFileHandler
 from border_equeue_stats.constants import COMMON_LOGGERS
 
 
+def hash_user_id(user_id):
+    return hashlib.md5(str(user_id).encode()).hexdigest()
+
+
 class UserLogger(logging.Logger):
   def __init__(self, user_id, level=logging.NOTSET):
     name = 'user_logger'
     super().__init__(name, level)
     self.extra_info = {'user_id': user_id}
-    user_id_hash = hashlib.md5(str(user_id).encode()).hexdigest()
-    print(self.extra_info, user_id_hash)
+    user_id_hash = hash_user_id(user_id)
 
     users_logs_dir = os.path.join('logs', 'users_logs')
     os.makedirs(users_logs_dir, exist_ok=True)
