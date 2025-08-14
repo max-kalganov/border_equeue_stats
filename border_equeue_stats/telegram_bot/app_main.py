@@ -148,10 +148,15 @@ def app_main() -> None:
 
     application.add_handler(conv_handler)
 
-    # # Start the queue processor as a background task
-    application.add_handler(CommandHandler('set_dumper', set_dumper))
-    application.add_handler(CommandHandler('unset_dumper', unset_dumper))
-    # asyncio.create_task(start_queue_processor())
+    # Add handlers for dumper commands (only for admin)
+    admin_id = os.environ.get('ADMIN_ID', None)
+    assert admin_id is not None and admin_id.isdigit(), \
+        (f"ADMIN_ID is not set. Is None: {admin_id is None}, Is not None, "
+         f"but not digit: {admin_id is not None and not admin_id.isdigit()}")
+    admin_id = int(admin_id)
+
+    application.add_handler(CommandHandler('set_dumper', set_dumper, filters=filters.User(admin_id)))
+    application.add_handler(CommandHandler('unset_dumper', unset_dumper, filters=filters.User(admin_id)))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
