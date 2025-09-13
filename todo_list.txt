@@ -1,0 +1,113 @@
+Todo list.
+
+Mark all implemented functionality in @todo_list.txt 
+
+## Bot Improvements
+Improvements for the bot to be able to postpone it for the near future
+
+### app_main.py
+- [ ] Final bot interface implementation
+- [ ] Import and integrate bot methods from other scripts
+- [ ] Main bot initialization and setup
+- [ ] Command handlers registration (/start, /help, /plot_queue, /set_dumper)
+- [ ] Error handling and exception management
+- [ ] Bot token configuration and environment setup
+- [ ] Conversation handlers for user interactions
+- [ ] Rate limiting middleware (10 requests per hour per user)
+- [ ] Admin user validation and access control
+
+### logging_utils.py
+- [x] User action logging (as well as access to admin requests)
+- [ ] Log count retrieval methods
+- [ ] Log analysis and filtering by date range
+- [ ] User activity tracking with timestamps
+- [ ] Request logging with response times
+- [ ] Error logging for failed operations
+- [ ] Admin access logging and monitoring
+- [ ] Log rotation and cleanup functionality
+
+### periodic_tasks.py
+- [ ] Dumping tasks implementation
+- [ ] Asyncio queue management for background tasks
+- [ ] Scheduled data collection from EQUEUE_JSON_PATH
+- [ ] Periodic data export to parquet format
+- [ ] Task scheduling and management with job queue
+- [ ] iCloud integration for data export (https://github.com/picklepete/pyicloud)
+- [ ] Set reminders for data export every 3 months
+- [ ] Error handling for failed dump operations
+- [ ] Retry mechanism for failed tasks
+
+### push_notifications.py
+- [ ] Admin notifications implementation
+- [ ] Scheduled notifications with basic information from readme.md
+- [ ] Weekly admin summary reports
+- [ ] Error notifications for dumper failures
+- [ ] System status notifications (memory usage, disk space)
+- [ ] User statistics notifications (daily/weekly)
+- [ ] Memory usage alerts for stored queue data
+- [ ] Popular plot analysis notifications
+- [ ] Request count monitoring alerts
+
+### stats_interface.py
+- [ ] All statistics methods for the bot
+- [ ] Rate limiting implementation (no more than 10 requests per hour)
+- [ ] User functionality
+    - [ ] Create conversation handler for each chart type
+        - [ ] Waiting time charts (by region, by load time)
+        - [ ] Vehicle count charts (total, by regions)
+        - [ ] Frequent vehicle registration charts
+        - [ ] Called status waiting time charts
+        - [ ] Declined/registered/called vehicle charts
+    - [ ] Chart description display with emoji and abbreviations
+    - [ ] Vehicle type selection (car, bus, truck, motorcycle) via inline keyboard
+    - [ ] Queue type selection (live, priority, gpk) via inline buttons
+- [ ] Admin info retrieval methods
+    - [ ] Memory usage calculation
+        - [ ] Data storage memory usage
+        - [ ] Image storage memory usage
+    - [ ] Daily request count tracking
+    - [ ] User count statistics
+        - [ ] All time user count
+        - [ ] Last week user count
+    - [ ] Top users by request count
+    - [ ] Long-term analytics charts
+        - [ ] User count over time
+        - [ ] Request count over time
+        - [ ] Chart popularity analysis
+- [ ] Chart display capabilities
+    - [ ] All main charts for the last week by hours
+    - [ ] Basic charts by days for the year
+    - [ ] Interactive chart generation with plotly
+    - [ ] Chart image export and sending
+
+### Bot Configuration & Deployment
+- [x] Admin capabilities for only one user
+- [x] Inform about non-liability and rate limiting during initialization
+- [ ] Study Sber Cloud documentation
+- [ ] Buy monthly subscription
+- [ ] Deploy bot to cloud platform
+- [ ] Check Telegram access and bot functionality
+- [ ] Environment variables configuration
+- [ ] Database connection setup
+
+### Testing & Maintenance
+- [ ] Test for a month to see if everything works well
+- [ ] If everything is OK, extend subscription for a year
+- [ ] Monitor system performance and resource usage
+- [ ] Regular maintenance tasks and cleanup
+- [ ] Performance optimization based on usage patterns
+- [ ] Error monitoring and alerting
+
+### Interface Design
+- [ ] User interface
+    - [ ] Describe interface flow and user journey
+    - [ ] Implement intuitive menu system
+    - [ ] Add help documentation and usage examples
+- [ ] Admin interface
+    - [ ] Built into general interface with admin-only commands
+    - [ ] Describe admin interface requirements
+    - [ ] Implement admin dashboard functionality
+    - [ ] Add error reporting for dumper operations
+
+
+
