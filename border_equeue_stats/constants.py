@@ -21,6 +21,10 @@ BELARUS_REGIONS_MAP = {
     '7': 'Minsk City',
     '8': 'Minsk City'
 }
+# if region will ever have more than 1 number, 
+# it's required to correct pattern and lambda function when extracting a region
+# now it's processing only a single number
+
 
 EQUEUE_STATUSES_MAP = {
     2: 'In queue',
