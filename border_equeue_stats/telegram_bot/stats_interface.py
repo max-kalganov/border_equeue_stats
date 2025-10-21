@@ -527,7 +527,7 @@ async def select_aggregation(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def select_time_range_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Move to time range selection step with smart defaults based on aggregation"""
-    from border_equeue_stats.data_storage.parquet_storage import get_recommended_time_ranges
+    from border_equeue_stats.data_processing import get_recommended_time_ranges
     
     floor_value = context.user_data['aggregation']
     aggregation_display = context.user_data['aggregation_display']

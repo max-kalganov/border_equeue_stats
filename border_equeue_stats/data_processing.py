@@ -1,5 +1,6 @@
 import typing as tp
 import pandas as pd
+from datetime import timedelta
 
 
 def apply_datetime_aggregation(df: pd.DataFrame,
@@ -78,3 +79,46 @@ def apply_datetime_aggregation(df: pd.DataFrame,
                 group_cols).agg(agg_dict).reset_index()
 
     return result_df
+
+
+def get_recommended_time_ranges(floor_value: tp.Optional[str]) -> tp.Dict[str, timedelta]:
+    """
+    Get recommended time ranges for different aggregation periods.
+
+    Args:
+        floor_value: Time aggregation period ('5min', 'h', 'd', 'M', None)
+
+    Returns:
+        Dictionary with time range options and their timedelta values
+    """
+    if floor_value == '5min':
+        return {
+            "📅 Last 3 Days": timedelta(days=3),
+            "📅 Last Week": timedelta(days=7),
+            "📅 Last 2 Weeks": timedelta(days=14),
+        }
+    elif floor_value == 'h':
+        return {
+            "📅 Last Week": timedelta(days=7),
+            "📅 Last Month": timedelta(days=30),
+            "📅 Last 3 Months": timedelta(days=90),
+        }
+    elif floor_value == 'd':
+        return {
+            "📅 Last Month": timedelta(days=30),
+            "📅 Last 3 Months": timedelta(days=90),
+            "📅 Last 6 Months": timedelta(days=180),
+            "📅 Last Year": timedelta(days=365),
+        }
+    elif floor_value == 'M':
+        return {
+            "📅 Last Year": timedelta(days=365),
+            "📅 Last 2 Years": timedelta(days=730),
+            "📅 Last 3 Years": timedelta(days=1095),
+        }
+    else:  # None
+        return {
+            "📅 Last Day": timedelta(days=1),
+            "📅 Last 3 Days": timedelta(days=3),
+            "📅 Last Week": timedelta(days=7),
+        }

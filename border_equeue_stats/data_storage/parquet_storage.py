@@ -15,49 +15,6 @@ from border_equeue_stats.data_storage.data_storage_utils import convert_to_panda
 
 # TODO: move to constants
 
-def get_recommended_time_ranges(floor_value: tp.Optional[str]) -> tp.Dict[str, timedelta]:
-    """
-    Get recommended time ranges for different aggregation periods.
-
-    Args:
-        floor_value: Time aggregation period ('5min', 'h', 'd', 'M', None)
-
-    Returns:
-        Dictionary with time range options and their timedelta values
-    """
-    if floor_value == '5min':
-        return {
-            "📅 Last 3 Days": timedelta(days=3),
-            "📅 Last Week": timedelta(days=7),
-            "📅 Last 2 Weeks": timedelta(days=14),
-        }
-    elif floor_value == 'h':
-        return {
-            "📅 Last Week": timedelta(days=7),
-            "📅 Last Month": timedelta(days=30),
-            "📅 Last 3 Months": timedelta(days=90),
-        }
-    elif floor_value == 'd':
-        return {
-            "📅 Last Month": timedelta(days=30),
-            "📅 Last 3 Months": timedelta(days=90),
-            "📅 Last 6 Months": timedelta(days=180),
-            "📅 Last Year": timedelta(days=365),
-        }
-    elif floor_value == 'M':
-        return {
-            "📅 Last Year": timedelta(days=365),
-            "📅 Last 2 Years": timedelta(days=730),
-            "📅 Last 3 Years": timedelta(days=1095),
-        }
-    else:  # None
-        return {
-            "📅 Last Day": timedelta(days=1),
-            "📅 Last 3 Days": timedelta(days=3),
-            "📅 Last Week": timedelta(days=7),
-        }
-
-
 def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
                       in_batches: bool = False, columns=None, **batching_kwargs) -> tp.Iterable[tp.Optional[pd.DataFrame]]:
     data_dir = os.path.join(parquet_storage_path, name)
