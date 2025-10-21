@@ -29,7 +29,7 @@ def _optimize_figure_for_chat(fig: go.Figure) -> go.Figure:
 
 def get_figure_waiting_hours(queues_names, relative_time, floor_value: tp.Optional[str] = None,
                              aggregation_method: str = 'mean', time_range: tp.Optional[timedelta] = None):
-    """Plot waiting hours chart
+    """Returns figure of waiting hours chart
 
     Args:
         queues_names: List of queue names
@@ -56,7 +56,7 @@ def get_figure_waiting_hours_by_reg(queues_names: tp.List[str] = (ct.CAR_LIVE_QU
                                     floor_value: tp.Optional[str] = None,
                                     aggregation_method: str = 'mean',
                                     time_range: tp.Optional[timedelta] = None):
-    """Plot waiting hours by registration time"""
+    """Returns figure of waiting hours by registration time"""
     return get_figure_waiting_hours(queues_names, relative_time='reg', floor_value=floor_value,
                                     aggregation_method=aggregation_method, time_range=time_range)
 
@@ -65,7 +65,7 @@ def get_figure_waiting_hours_by_load(queues_names: tp.List[str] = (ct.CAR_LIVE_Q
                                      floor_value: tp.Optional[str] = None,
                                      aggregation_method: str = 'mean',
                                      time_range: tp.Optional[timedelta] = None):
-    """Plot waiting hours by load time"""
+    """Returns figure of waiting hours by load time"""
     return get_figure_waiting_hours(queues_names, relative_time='load', floor_value=floor_value,
                                     aggregation_method=aggregation_method, time_range=time_range)
 
@@ -74,7 +74,7 @@ def get_figure_vehicle_counts(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KE
                               floor_value: tp.Optional[str] = None,
                               aggregation_method: str = 'max',
                               time_range: tp.Optional[timedelta] = None):
-    """Plot vehicle counts over time"""
+    """Returns figure of vehicle counts over time"""
     df = get_count(queues_names=queues_names, floor_value=floor_value,
                    aggregation_method=aggregation_method, time_range=time_range)
     fig = px.line(df,
@@ -92,7 +92,7 @@ def get_figure_vehicle_count_per_regions(queue_name: str = ct.CAR_LIVE_QUEUE_KEY
                                          aggregation_method: str = 'sum',
                                          time_range: tp.Optional[timedelta] = None):
     """
-    Plot vehicle count per regions
+    Returns figure of vehicle count per regions
 
     :param plot_type: str - 'bar' - regions are stacked on top of each other
                             'line' - separate lines for each region
@@ -126,7 +126,7 @@ def get_figure_vehicle_count_per_regions(queue_name: str = ct.CAR_LIVE_QUEUE_KEY
 
 
 def get_figure_frequent_vehicles_registrations_count(queue_name: str = ct.CAR_LIVE_QUEUE_KEY, has_been_called: bool = False):
-    """Plot frequent vehicle registrations count as pie chart"""
+    """Returns figure of frequent vehicle registrations count as pie chart"""
     filtering_date = '2024-09-01'
     reg_freq_df = get_single_vehicle_registrations_count(queue_name=queue_name,
                                                          has_been_called=has_been_called,
@@ -144,7 +144,7 @@ def get_figure_called_status_waiting_time(queues_names: tp.List[str] = (ct.CAR_L
                                           aggregation_type: str = 'min',
                                           floor_value: tp.Optional[str] = None,
                                           time_range: tp.Optional[timedelta] = None):
-    """Plot called status waiting time"""
+    """Returns figure of called status waiting time"""
     waiting_df = get_called_vehicles_waiting_time(queues_names=queues_names,
                                                   aggregation_type=aggregation_type,
                                                   floor_value=floor_value,
@@ -163,7 +163,7 @@ def get_figure_declined_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE
                                  floor_value: tp.Optional[str] = None,
                                  aggregation_method: str = 'sum',
                                  time_range: tp.Optional[timedelta] = None):
-    """Plot declined vehicles count"""
+    """Returns figure of declined vehicles count"""
     declined_df = get_number_of_declined_vehicles(queues_names=queues_names,
                                                   floor_value=floor_value,
                                                   aggregation_method=aggregation_method,
@@ -180,7 +180,7 @@ def get_figure_declined_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE
 
 def get_figure_registered_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.BUS_LIVE_QUEUE_KEY),
                                    floor_value: str = 'h'):
-    """Plot registered vehicles count"""
+    """Returns figure of registered vehicles count"""
     registered_df = get_registered_count(
         queues_names=queues_names, floor_value=floor_value)
     fig = px.line(registered_df,
@@ -195,7 +195,7 @@ def get_figure_registered_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUE
 
 def get_figure_called_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_KEY, ct.BUS_LIVE_QUEUE_KEY),
                                floor_value: str = 'h'):
-    """Plot called vehicles count"""
+    """Returns figure of called vehicles count"""
     called_df = get_called_count(
         queues_names=queues_names, floor_value=floor_value)
     fig = px.line(called_df,
@@ -209,7 +209,7 @@ def get_figure_called_vehicles(queues_names: tp.List[str] = (ct.CAR_LIVE_QUEUE_K
 
 
 def get_figure_cars_cnt():
-    """Plot cars count from raw data file"""
+    """Returns figure of cars count from raw data file"""
     with open('data/brest_border_equeue.txt', 'r') as f:
         lines = f.readlines()
 
