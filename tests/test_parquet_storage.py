@@ -12,7 +12,8 @@ from border_equeue_stats.constants import CAR_LIVE_QUEUE_KEY
 from border_equeue_stats.data_storage.data_storage_utils import convert_to_pandas_equeue
 from border_equeue_stats.data_storage.json_storage import read_from_json
 from border_equeue_stats.data_storage.parquet_storage import dump_to_parquet, read_from_parquet, read_all_from_parquet, \
-    dump_all_stored_json_to_parquet, apply_datetime_aggregation
+    dump_all_stored_json_to_parquet
+from border_equeue_stats.data_processing import apply_datetime_aggregation
 
 
 class TestParquetStorage(unittest.TestCase):

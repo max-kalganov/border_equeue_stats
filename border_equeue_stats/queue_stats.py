@@ -7,6 +7,7 @@ from pyarrow.parquet import filters_to_expression
 
 from border_equeue_stats import constants as ct
 from border_equeue_stats.data_storage.parquet_storage import read_from_parquet
+from border_equeue_stats.data_processing import apply_datetime_aggregation
 
 
 def check_queue_names(queues_names: tp.List[str]):
