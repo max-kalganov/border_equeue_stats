@@ -95,6 +95,13 @@ def get_waiting_time(queues_names: tp.List[str],
     def read_queue(name):
         read_filters = filters if filters is not None else []
         read_filters.append((ct.QUEUE_POS_COLUMN, '==', 1))
+        
+        # Add time range filter if specified
+        relative_time_column = ct.LOAD_DATE_COLUMN if relative_time == 'load' else ct.REGISTRATION_DATE_COLUMN
+        if time_range is not None:
+            cutoff_date = datetime.now() - time_range
+            read_filters.append((relative_time_column, '>=', cutoff_date))
+        
         queue_df = list(read_from_parquet(
             name,
             filters=read_filters,
@@ -102,10 +109,25 @@ def get_waiting_time(queues_names: tp.List[str],
             in_batches=False,
             columns=[ct.REGISTRATION_DATE_COLUMN, ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
         ))[0]
+        
+        if queue_df is None or len(queue_df) == 0:
+            return pd.DataFrame(columns=['relative_time', 'hours_waited', 'first_vehicle_number', 'queue_name'])
+        
         queue_df['hours_waited'] = queue_df[ct.LOAD_DATE_COLUMN] - queue_df[ct.REGISTRATION_DATE_COLUMN]
         queue_df['hours_waited'] = queue_df['hours_waited'].apply(lambda hw: round(hw.total_seconds() / 3600, 2))
         queue_df['queue_name'] = name
-        relative_time_column = ct.LOAD_DATE_COLUMN if relative_time == 'load' else ct.REGISTRATION_DATE_COLUMN
+        
+        # Apply time aggregation if specified
+        if floor_value is not None:
+            queue_df = apply_datetime_aggregation(
+                df=queue_df,
+                time_column=relative_time_column,
+                floor_value=floor_value,
+                aggregation_method=aggregation_method,
+                group_columns=['queue_name'],
+                value_columns={'hours_waited': aggregation_method, ct.CAR_NUMBER_COLUMN: 'first'}
+            )
+        
         queue_df = queue_df.rename(columns={relative_time_column: 'relative_time',
                                             ct.CAR_NUMBER_COLUMN: 'first_vehicle_number'})
         return queue_df[['relative_time', 'hours_waited',
@@ -163,6 +185,12 @@ def get_count(queues_names: tp.List[str],
     def read_queue(name):
         read_filters = filters if filters is not None else []
         read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
+        
+        # Add time range filter if specified
+        if time_range is not None:
+            cutoff_date = datetime.now() - time_range
+            read_filters.append((ct.LOAD_DATE_COLUMN, '>=', cutoff_date))
+        
         queue_df = list(read_from_parquet(
             name,
             filters=read_filters,
@@ -170,10 +198,27 @@ def get_count(queues_names: tp.List[str],
             in_batches=False,
             columns=[ct.QUEUE_POS_COLUMN, ct.LOAD_DATE_COLUMN]
         ))[0]
+        
+        if queue_df is None or len(queue_df) == 0:
+            return pd.DataFrame(columns=['relative_time', 'vehicle_count', 'queue_name'])
+        
+        # First get max position per load date (represents queue length)
         queue_df = queue_df.groupby(ct.LOAD_DATE_COLUMN).aggregate({ct.QUEUE_POS_COLUMN: 'max'}).reset_index()
+        queue_df['queue_name'] = name
+        
+        # Apply time aggregation if specified
+        if floor_value is not None:
+            queue_df = apply_datetime_aggregation(
+                df=queue_df,
+                time_column=ct.LOAD_DATE_COLUMN,
+                floor_value=floor_value,
+                aggregation_method=aggregation_method,
+                group_columns=['queue_name'],
+                value_columns={ct.QUEUE_POS_COLUMN: aggregation_method}
+            )
+            
         queue_df = queue_df.rename(columns={ct.LOAD_DATE_COLUMN: 'relative_time',
                                             ct.QUEUE_POS_COLUMN: 'vehicle_count'})
-        queue_df['queue_name'] = name
         return queue_df[['relative_time', 'vehicle_count', 'queue_name']].sort_values('relative_time')
 
     check_queue_names(queues_names)
@@ -229,6 +274,12 @@ def get_count_by_regions(queue_name: str,
 
     read_filters = filters if filters is not None else []
     read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
+    
+    # Add time range filter if specified
+    if time_range is not None:
+        cutoff_date = datetime.now() - time_range
+        read_filters.append((ct.LOAD_DATE_COLUMN, '>=', cutoff_date))
+    
     queue_df = list(read_from_parquet(
         queue_name,
         filters=read_filters,
@@ -236,7 +287,11 @@ def get_count_by_regions(queue_name: str,
         in_batches=False,
         columns=[ct.CAR_NUMBER_COLUMN, ct.LOAD_DATE_COLUMN]
     ))[0]
-    # queue_df = queue_df.groupby(ct.CAR_NUMBER_COLUMN).aggregate({ct.LOAD_DATE_COLUMN: 'min'}).reset_index()
+    
+    if queue_df is None or len(queue_df) == 0:
+        return pd.DataFrame(columns=['relative_time', 'vehicle_count', 'region'])
+    
+    # Extract region from license plate
     queue_df['region'] = queue_df[ct.CAR_NUMBER_COLUMN].apply(
         lambda cn: cn[-1] if ct.BELARUS_CAR_NUMBER_FORMAT.match(cn) else None
     )
@@ -357,11 +412,18 @@ def get_called_vehicles_waiting_time(queues_names: tp.List[str],
     """
     def read_queue(qname):
         queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
+        
+        read_filters = queue_pos_filter_expr
         if filters is not None:
-            read_filters = filters_to_expression(filters)
-            read_filters = read_filters & queue_pos_filter_expr
-        else:
-            read_filters = queue_pos_filter_expr
+            filters_expr = filters_to_expression(filters)
+            read_filters = filters_expr & queue_pos_filter_expr
+        
+        # Add time range filter if specified
+        if time_range is not None:
+            cutoff_date = datetime.now() - time_range
+            time_filter_expr = pc.field(ct.CHANGED_DATE_COLUMN) >= cutoff_date
+            read_filters = read_filters & time_filter_expr
+            
         queue_df = list(read_from_parquet(
             qname,
             filters=read_filters,
@@ -443,11 +505,17 @@ def get_number_of_declined_vehicles(queues_names: tp.List[str],
     def read_queue(qname):
         vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 9
 
+        read_filters = vehicle_type_filter_expr
         if filters is not None:
-            read_filters = filters_to_expression(filters)
-            read_filters = read_filters & vehicle_type_filter_expr
-        else:
-            read_filters = vehicle_type_filter_expr
+            filters_expr = filters_to_expression(filters)
+            read_filters = filters_expr & vehicle_type_filter_expr
+        
+        # Add time range filter if specified
+        if time_range is not None:
+            cutoff_date = datetime.now() - time_range
+            time_filter_expr = pc.field(ct.LOAD_DATE_COLUMN) >= cutoff_date
+            read_filters = read_filters & time_filter_expr
+            
         queue_df = list(read_from_parquet(
             qname,
             filters=read_filters,
