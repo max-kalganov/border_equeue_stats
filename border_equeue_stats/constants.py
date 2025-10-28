@@ -1,4 +1,6 @@
 import re
+from datetime import timedelta
+
 
 EQUEUE_JSON_PATH = "https://belarusborder.by/info/" \
                    "monitoring-new?token=test&checkpointId=a9173a85-3fc0-424c-84f0-defa632481e4"
