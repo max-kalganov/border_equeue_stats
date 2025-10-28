@@ -13,8 +13,6 @@ from border_equeue_stats.data_storage.data_models import EqueueData
 from border_equeue_stats.data_storage.data_storage_utils import convert_to_pandas_equeue
 
 
-# TODO: move to constants
-
 def read_from_parquet(name, filters: tp.Optional = None, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
                       in_batches: bool = False, columns=None, **batching_kwargs) -> tp.Iterable[tp.Optional[pd.DataFrame]]:
     data_dir = os.path.join(parquet_storage_path, name)
