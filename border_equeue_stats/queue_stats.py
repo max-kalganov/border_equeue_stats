@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import typing as tp
+from datetime import datetime, timedelta
 
 import pyarrow.compute as pc
 from pyarrow.parquet import filters_to_expression
@@ -10,7 +11,16 @@ from border_equeue_stats.data_storage.parquet_storage import read_from_parquet
 from border_equeue_stats.data_processing import apply_datetime_aggregation
 
 
-def check_queue_names(queues_names: tp.List[str]):
+def check_queue_names(queues_names: tp.List[str]) -> None:
+    """
+    Validate that queue names are correct and unique.
+    
+    Args:
+        queues_names: List of queue names to validate
+        
+    Raises:
+        AssertionError: If queue names are invalid, empty, or contain duplicates
+    """
     unq_queue_names = set(queues_names)
     assert (len(queues_names) > 0
             and len(queues_names) == len(unq_queue_names)
@@ -18,7 +28,16 @@ def check_queue_names(queues_names: tp.List[str]):
         f'incorrect queue names - {queues_names}'
 
 
-def check_single_queue_name(queue_name: str):
+def check_single_queue_name(queue_name: str) -> bool:
+    """
+    Validate a single queue name.
+    
+    Args:
+        queue_name: Queue name to validate
+        
+    Returns:
+        True if queue name is valid, False otherwise
+    """
     return (isinstance(queue_name, str)
             and queue_name in ct.ALL_EQUEUE_KEYS
             and queue_name != ct.INFO_KEY), \
@@ -27,31 +46,52 @@ def check_single_queue_name(queue_name: str):
 
 def get_waiting_time(queues_names: tp.List[str],
                      relative_time: str = 'reg',
-                     filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+                     filters: tp.Optional[tp.List] = None,
+                     floor_value: tp.Optional[str] = None,
+                     aggregation_method: str = 'mean',
+                     time_range: tp.Optional[timedelta] = None) -> pd.DataFrame:
     """
-    Returns DataFrame with waiting time values.
+    Returns DataFrame with waiting time values showing how long vehicles wait in queue.
 
     Helps to understand, how many hours are waiting people in the queue.
 
-    Notes:
-        The following details are using 'car' in description. Car is given as an example,
-        when queue_names contains 'carLiveQueue' or 'carPriority', otherwise it could be replaced with
-        truck/bus/motorcycle.
+    Args:
+        queues_names: List of queue names to include in analysis. Must be valid queue keys
+                     from constants (e.g., ['carLiveQueue', 'busLiveQueue'])
+        relative_time: Time reference for analysis. Options:
+                      - 'reg': Use vehicle registration time as x-axis
+                      - 'load': Use queue data collection time as x-axis
+        filters: Optional parquet filters to limit data scope. Format: [(column, operator, value)]
+                Example: [('load_date', '>=', datetime(2024, 1, 1))]
+        floor_value: Time aggregation period for grouping data points:
+                    - None: All individual data points (no aggregation)
+                    - '5min': 5-minute intervals
+                    - 'h': Hourly aggregation
+                    - 'd': Daily aggregation  
+                    - 'M': Monthly aggregation
+        aggregation_method: How to combine values within each time bucket:
+                           - 'mean': Average waiting time in each period
+                           - 'max': Maximum waiting time in each period
+                           - 'min': Minimum waiting time in each period
+                           - 'drop': Just remove intermediate points (keep first)
+        time_range: Optional time window to limit analysis (e.g., timedelta(days=30))
+                   Data will be filtered to this range from the most recent date
 
-    :param queues_names: List[str] - list of queues which will be in the
-        dataframe separated by queue_name column value
-    :param relative_time: str - 'reg' or 'load'
-        'reg' - sets relative_time column values as the first car in queue registration time
-        'load' - sets relative_time column values as a time, when queue dump was made
-    :param filters: Optional[List[str]] - parquet data filters
-    :return:
-        DataFrame columns:
-        (1) relative_time - depending on relative_time parameter
-        (2) hours_waited - how much time the first car has waited in queue already
-        (3) first_vehicle_number - car number of the first vehicle in queue
-        (4) queue_name - name of the queue for the specific row
+    Returns:
+        DataFrame with columns:
+        - relative_time: Time reference (registration or load date based on relative_time param)
+        - hours_waited: Waiting time in hours for first vehicle in queue
+        - first_vehicle_number: License plate of first vehicle in queue
+        - queue_name: Name of the queue for this data row
+
+    Raises:
+        AssertionError: If queues_names are invalid or relative_time not in {'reg', 'load'}
+        
+    Example:
+        >>> df = get_waiting_time(['carLiveQueue'], relative_time='load', 
+                                 floor_value='h', aggregation_method='mean')
+        >>> print(df.head())
     """
-
     def read_queue(name):
         read_filters = filters if filters is not None else []
         read_filters.append((ct.QUEUE_POS_COLUMN, '==', 1))
@@ -72,25 +112,54 @@ def get_waiting_time(queues_names: tp.List[str],
                          'first_vehicle_number', 'queue_name']].sort_values('relative_time')
 
     check_queue_names(queues_names)
-    assert relative_time in {'reg', 'load'}
+    assert relative_time in {'reg', 'load'}, f"relative_time must be 'reg' or 'load', got {relative_time}"
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
 
 
 def get_count(queues_names: tp.List[str],
-              filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+              filters: tp.Optional[tp.List] = None,
+              floor_value: tp.Optional[str] = None,
+              aggregation_method: str = 'max',
+              time_range: tp.Optional[timedelta] = None) -> pd.DataFrame:
     """
-    Returns DataFrame with vehicle counts over time.
+    Returns DataFrame with vehicle counts over time for specified queues.
 
-    :param queues_names: List[str] - list of queues which will be in the
-        dataframe separated by queue_name column value
-    :param filters: Optional[List[str]] - parquet data filters
-    :return:
-        DataFrame columns:
-        (1) relative_time - data load date
-        (2) vehicle_count - number of ordered vehicles in queue at a specific load date
-        (3) queue_name - name of the queue for the specific row
+    This function analyzes queue capacity by tracking the number of vehicles
+    in each queue at different time points.
+
+    Args:
+        queues_names: List of queue names to analyze. Must be valid queue keys
+                     from constants (e.g., ['carLiveQueue', 'busLiveQueue'])
+        filters: Optional parquet filters to limit data scope. Format: [(column, operator, value)]
+                Example: [('load_date', '>=', datetime(2024, 1, 1))]
+        floor_value: Time aggregation period for grouping data points:
+                    - None: All individual data points (no aggregation)
+                    - '5min': 5-minute intervals  
+                    - 'h': Hourly aggregation
+                    - 'd': Daily aggregation
+                    - 'M': Monthly aggregation
+        aggregation_method: How to combine vehicle counts within each time bucket:
+                           - 'max': Peak vehicle count in each period (default, most meaningful)
+                           - 'mean': Average vehicle count in each period
+                           - 'min': Minimum vehicle count in each period
+                           - 'drop': Just remove intermediate points (keep first)
+        time_range: Optional time window to limit analysis (e.g., timedelta(days=30))
+                   Data will be filtered to this range from the most recent date
+
+    Returns:
+        DataFrame with columns:
+        - relative_time: Data collection timestamp
+        - vehicle_count: Number of vehicles in queue at that time
+        - queue_name: Name of the queue for this data row
+
+    Raises:
+        AssertionError: If queues_names are invalid
+        
+    Example:
+        >>> df = get_count(['carLiveQueue', 'busLiveQueue'], floor_value='d', 
+                          aggregation_method='max')
+        >>> print(df.head())
     """
-
     def read_queue(name):
         read_filters = filters if filters is not None else []
         read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
@@ -113,20 +182,50 @@ def get_count(queues_names: tp.List[str],
 
 def get_count_by_regions(queue_name: str,
                          filters: tp.Optional[tp.List] = None,
-                         floor_value: tp.Optional[str] = None) -> pd.DataFrame:
+                         floor_value: tp.Optional[str] = None,
+                         aggregation_method: str = 'sum',
+                         time_range: tp.Optional[timedelta] = None) -> pd.DataFrame:
     """
-    Returns DataFrame with vehicle counts over time per regions.
+    Returns DataFrame with vehicle counts over time per regions for a single queue.
 
-    :param queue_name: str - queue which will be stored into the dataframe
-    :param filters: Optional[List[str]] - parquet data filters
-    :param floor_value: Optional[str] - sets larger buckets for counting
-    :return:
-        DataFrame columns:
-        (1) relative_time - data load date
-        (2) vehicle_count - number of ordered vehicles in queue at a specific load date
-        (3) region - region label
+    This function analyzes regional distribution of vehicles in a specific queue,
+    showing how different regions contribute to queue composition over time.
+
+    Args:
+        queue_name: Single queue name to analyze. Must be a valid queue key from constants
+                   (e.g., 'carLiveQueue', 'busLiveQueue')
+        filters: Optional parquet filters to limit data scope. Format: [(column, operator, value)]
+                Example: [('load_date', '>=', datetime(2024, 1, 1))]
+        floor_value: Time aggregation period for grouping data points:
+                    - None: All individual data points (no aggregation)
+                    - '5min': 5-minute intervals
+                    - 'h': Hourly aggregation
+                    - 'd': Daily aggregation
+                    - 'M': Monthly aggregation
+        aggregation_method: How to combine vehicle counts within each time bucket:
+                           - 'sum': Total vehicles from each region in each period (default)
+                           - 'mean': Average vehicle count per region in each period
+                           - 'max': Peak vehicle count per region in each period
+                           - 'min': Minimum vehicle count per region in each period
+                           - 'drop': Just remove intermediate points (keep first)
+        time_range: Optional time window to limit analysis (e.g., timedelta(days=30))
+                   Data will be filtered to this range from the most recent date
+
+    Returns:
+        DataFrame with columns:
+        - relative_time: Data collection timestamp
+        - vehicle_count: Number of vehicles from this region at that time
+        - region: Region identifier (based on license plate patterns)
+
+    Raises:
+        AssertionError: If queue_name is invalid
+
+    Example:
+        >>> df = get_count_by_regions('carLiveQueue', floor_value='d', 
+                                     aggregation_method='sum')
+        >>> print(df.head())
     """
-    assert check_single_queue_name(queue_name) is True, f'incorrect queue_name: {queue_name}'
+    assert check_single_queue_name(queue_name), f'incorrect queue_name: {queue_name}'
 
     read_filters = filters if filters is not None else []
     read_filters.append((ct.QUEUE_POS_COLUMN, '!=', np.nan))
@@ -160,13 +259,22 @@ def get_single_vehicle_registrations_count(queue_name: str,
     """
     Returns DataFrame with vehicles grouped by registration counts.
 
-    :param queue_name: str - queue which will be stored into the dataframe
-    :param filters: Optional[List[str]] - parquet data filters
-    :param has_been_called: bool - True - select only vehicles registrations, which were successfully completed
-    :return:
-        DataFrame columns:
-        (1) count_of_registrations - number of registration of a vehicle in queue
-        (2) vehicle_count - number of ordered vehicles in queue at a specific load date
+    Args:
+        queue_name: str - queue which will be stored into the dataframe
+        filters: Optional[List[str]] - parquet data filters
+        has_been_called: bool - True means selecting only vehicles registrations, which were successfully completed
+    
+    Returns:
+        DataFrame with columns:
+        - count_of_registrations: Number of registration of a vehicle in queue
+        - vehicle_count: Number of ordered vehicles in queue at a specific load date
+
+    Raises:
+        AssertionError: If queue_name is invalid
+
+    Example:
+        >>> df = get_single_vehicle_registrations_count('carLiveQueue', has_been_called=True)
+        >>> print(df.head())
     """
     assert check_single_queue_name(queue_name) is True, f'incorrect queue_name: {queue_name}'
     if has_been_called:
@@ -206,21 +314,47 @@ def get_single_vehicle_registrations_count(queue_name: str,
 
 def get_called_vehicles_waiting_time(queues_names: tp.List[str],
                                      filters: tp.Optional[tp.List] = None,
-                                     aggregation_type: str = 'min') -> pd.DataFrame:
+                                     aggregation_type: str = 'min',
+                                     floor_value: tp.Optional[str] = None,
+                                     time_range: tp.Optional[timedelta] = None) -> pd.DataFrame:
     """
-    Returns DataFrame with waiting minutes per date.
+    Returns DataFrame with waiting minutes for vehicles after being called to the border.
 
-    :param queues_names: List[str] - queues which will be stored into the dataframe
-    :param filters: Optional[List[str]] - parquet data filters
-    :param aggregation_type: str - max/min/mean - aggregation of waiting_after_called
-                                   for all cars with the same relative_time
-    :return:
-        DataFrame columns:
-        (1) relative_time - last changed status date, when a car was called
-        (2) waiting_after_called - how many minutes a car waited in status called before removed from queue
-        (3) queue_name - name of the queue for the specific row
+    This function analyzes the time vehicles wait after receiving a "called" status
+    until they are removed from the queue (presumably processed at the border).
+
+    Args:
+        queues_names: List of queue names to analyze. Must be valid queue keys
+                     from constants (e.g., ['carLiveQueue', 'busLiveQueue'])
+        filters: Optional parquet filters to limit data scope. Format: [(column, operator, value)]
+                Example: [('load_date', '>=', datetime(2024, 1, 1))]
+        aggregation_type: How to aggregate waiting times for vehicles called at the same time:
+                         - 'min': Shortest waiting time (default, most optimistic)
+                         - 'max': Longest waiting time (worst case scenario)
+                         - 'mean': Average waiting time (typical experience)
+        floor_value: Time aggregation period for grouping data points:
+                    - None: All individual data points (no aggregation)
+                    - '5min': 5-minute intervals
+                    - 'h': Hourly aggregation
+                    - 'd': Daily aggregation
+                    - 'M': Monthly aggregation
+        time_range: Optional time window to limit analysis (e.g., timedelta(days=30))
+                   Data will be filtered to this range from the most recent date
+
+    Returns:
+        DataFrame with columns:
+        - relative_time: Vehicle call timestamp
+        - waiting_after_called: Minutes waited after being called before queue removal
+        - queue_name: Name of the queue for this data row
+
+    Raises:
+        AssertionError: If queues_names are invalid or aggregation_type not in {'max', 'min', 'mean'}
+
+    Example:
+        >>> df = get_called_vehicles_waiting_time(['carLiveQueue'], 
+                                                 aggregation_type='mean', floor_value='h')
+        >>> print(df.head())
     """
-
     def read_queue(qname):
         queue_pos_filter_expr = pc.field(ct.QUEUE_POS_COLUMN).is_null()
         if filters is not None:
@@ -257,24 +391,55 @@ def get_called_vehicles_waiting_time(queues_names: tp.List[str],
         })[['relative_time', 'waiting_after_called', 'queue_name']].sort_values('relative_time')
 
     check_queue_names(queues_names)
-    assert aggregation_type in {'max', 'min', 'mean'}
+    assert aggregation_type in {'max', 'min', 'mean'}, f"aggregation_type must be 'max', 'min', or 'mean', got {aggregation_type}"
     return pd.concat([read_queue(qname) for qname in queues_names], axis=0)
 
 
 def get_number_of_declined_vehicles(queues_names: tp.List[str],
-                                    filters: tp.Optional[tp.List] = None) -> pd.DataFrame:
+                                    filters: tp.Optional[tp.List] = None,
+                                    floor_value: tp.Optional[str] = None,
+                                    aggregation_method: str = 'sum',
+                                    time_range: tp.Optional[timedelta] = None) -> pd.DataFrame:
     """
-    Returns DataFrame with number of declined vehicles.
+    Returns DataFrame with number of declined vehicles over time.
 
-    :param queues_names: List[str] - queues which will be stored into the dataframe
-    :param filters: Optional[List[str]] - parquet data filters
-    :return:
-        DataFrame columns:
-        (1) relative_time - load date
-        (2) vehicle_count - number of declined vehicles
-        (3) queue_name - name of the queue for the specific row
+    This function tracks vehicles that were declined/rejected from queues,
+    helping understand rejection patterns and queue management efficiency.
+
+    Args:
+        queues_names: List of queue names to analyze. Must be valid queue keys
+                     from constants (e.g., ['carLiveQueue', 'busLiveQueue'])
+        filters: Optional parquet filters to limit data scope. Format: [(column, operator, value)]
+                Example: [('load_date', '>=', datetime(2024, 1, 1))]
+        floor_value: Time aggregation period for grouping data points:
+                    - None: All individual data points (no aggregation)
+                    - '5min': 5-minute intervals
+                    - 'h': Hourly aggregation
+                    - 'd': Daily aggregation
+                    - 'M': Monthly aggregation
+        aggregation_method: How to combine declined vehicle counts within each time bucket:
+                           - 'sum': Total declined vehicles in each period (default)
+                           - 'mean': Average declined vehicles per time unit
+                           - 'max': Peak declined vehicles in each period
+                           - 'min': Minimum declined vehicles in each period
+                           - 'drop': Just remove intermediate points (keep first)
+        time_range: Optional time window to limit analysis (e.g., timedelta(days=30))
+                   Data will be filtered to this range from the most recent date
+
+    Returns:
+        DataFrame with columns:
+        - relative_time: Data collection timestamp
+        - vehicle_count: Number of declined vehicles at that time
+        - queue_name: Name of the queue for this data row
+
+    Raises:
+        AssertionError: If queues_names are invalid
+
+    Example:
+        >>> df = get_number_of_declined_vehicles(['carLiveQueue', 'busLiveQueue'], 
+                                               floor_value='d', aggregation_method='sum')
+        >>> print(df.head())
     """
-
     def read_queue(qname):
         vehicle_type_filter_expr = pc.field(ct.STATUS_COLUMN) == 9
 
@@ -310,14 +475,20 @@ def get_registered_count(queues_names: tp.List[str],
     """
     Returns DataFrame with number of registered vehicles.
 
-    :param queues_names: List[str] - queues which will be stored into the dataframe
-    :param filters: Optional[List[str]] - parquet data filters
-    :param floor_value: str - sets larger buckets for counting
-    :return:
-        DataFrame columns:
-        (1) relative_time - registered date
-        (2) vehicle_count - number of registered vehicles
-        (3) queue_name - name of the queue for the specific row
+    Args:
+        queues_names: List[str] - queues which will be stored into the dataframe
+        filters: Optional[List[str]] - parquet data filters
+        floor_value: str - sets larger buckets for counting
+
+    Notes:
+        The trick is in column selection and dropping duplicates. When dropping duplicates by
+        car number and registration date, we get the number of registered vehicles at a specific date.
+
+    Returns:
+        DataFrame with columns:
+        - relative_time: Registered date
+        - vehicle_count: Number of registered vehicles
+        - queue_name: Name of the queue for the specific row
     """
 
     def read_queue(qname):
