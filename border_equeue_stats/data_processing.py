@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import timedelta
 from border_equeue_stats import constants as ct
 
+
 def apply_datetime_aggregation(df: pd.DataFrame,
                                time_column: str,
                                floor_value: tp.Optional[str] = None,
