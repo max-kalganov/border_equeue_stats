@@ -1,7 +1,7 @@
 import typing as tp
 import pandas as pd
 from datetime import timedelta
-
+from border_equeue_stats import constants as ct
 
 def apply_datetime_aggregation(df: pd.DataFrame,
                                time_column: str,
@@ -17,14 +17,14 @@ def apply_datetime_aggregation(df: pd.DataFrame,
         time_column: Name of the datetime column to aggregate by
         floor_value: Time aggregation period ('5min', 'h', 'd', 'M', None)
             - '5min': 5-minute intervals
-            - 'h': hourly aggregation  
+            - 'h': hourly aggregation
             - 'd': daily aggregation
             - 'M': monthly aggregation
             - None: no aggregation (return original data)
         aggregation_method: How to aggregate values ('mean', 'max', 'min', 'drop')
             - 'mean': calculate mean of values in each time bucket
             - 'max': take maximum value in each time bucket
-            - 'min': take minimum value in each time bucket  
+            - 'min': take minimum value in each time bucket
             - 'drop': just drop intermediate points (take first value)
         group_columns: Additional columns to group by (e.g., ['queue_name'])
         value_columns: Dict mapping column names to aggregation methods
@@ -91,34 +91,8 @@ def get_recommended_time_ranges(floor_value: tp.Optional[str]) -> tp.Dict[str, t
     Returns:
         Dictionary with time range options and their timedelta values
     """
-    if floor_value == '5min':
-        return {
-            "📅 Last 3 Days": timedelta(days=3),
-            "📅 Last Week": timedelta(days=7),
-            "📅 Last 2 Weeks": timedelta(days=14),
-        }
-    elif floor_value == 'h':
-        return {
-            "📅 Last Week": timedelta(days=7),
-            "📅 Last Month": timedelta(days=30),
-            "📅 Last 3 Months": timedelta(days=90),
-        }
-    elif floor_value == 'd':
-        return {
-            "📅 Last Month": timedelta(days=30),
-            "📅 Last 3 Months": timedelta(days=90),
-            "📅 Last 6 Months": timedelta(days=180),
-            "📅 Last Year": timedelta(days=365),
-        }
-    elif floor_value == 'M':
-        return {
-            "📅 Last Year": timedelta(days=365),
-            "📅 Last 2 Years": timedelta(days=730),
-            "📅 Last 3 Years": timedelta(days=1095),
-        }
-    else:  # None
-        return {
+    return ct.FLOOR_VALUE_MAP.get(floor_value, {
             "📅 Last Day": timedelta(days=1),
             "📅 Last 3 Days": timedelta(days=3),
             "📅 Last Week": timedelta(days=7),
-        }
+        })

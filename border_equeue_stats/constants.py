@@ -21,7 +21,7 @@ BELARUS_REGIONS_MAP = {
     '7': 'Minsk City',
     '8': 'Minsk City'
 }
-# if region will ever have more than 1 number, 
+# if region will ever have more than 1 number,
 # it's required to correct pattern and lambda function when extracting a region
 # now it's processing only a single number
 
@@ -30,6 +30,30 @@ EQUEUE_STATUSES_MAP = {
     2: 'In queue',
     3: 'Is called',
     9: 'Is canceled'
+}
+
+FLOOR_VALUE_MAP = {
+    '5min': {
+        "📅 Last 3 Days": timedelta(days=3),
+        "📅 Last Week": timedelta(days=7),
+        "📅 Last 2 Weeks": timedelta(days=14),
+    },
+    'h': {
+        "📅 Last Week": timedelta(days=7),
+        "📅 Last Month": timedelta(days=30),
+        "📅 Last 3 Months": timedelta(days=90),
+    },
+    'd': {
+        "📅 Last Month": timedelta(days=30),
+        "📅 Last 3 Months": timedelta(days=90),
+        "📅 Last 6 Months": timedelta(days=180),
+        "📅 Last Year": timedelta(days=365),
+    },
+    'M': {
+        "📅 Last Year": timedelta(days=365),
+        "📅 Last 2 Years": timedelta(days=730),
+        "📅 Last 3 Years": timedelta(days=1095),
+    }
 }
 
 ##################################################################################################
@@ -85,4 +109,5 @@ MAIN_LOGGER_NAME = 'app_main'
 STAT_INTERFACE_LOGGER_NAME = 'stats_interface'
 PUSH_NOTIFICATIONS_LOGGER_NAME = 'app_push_notification'
 PERIODIC_TASKS_LOGGER_NAME = 'periodic_tasks'
-COMMON_LOGGERS = {MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME, PUSH_NOTIFICATIONS_LOGGER_NAME, PERIODIC_TASKS_LOGGER_NAME}
+COMMON_LOGGERS = {MAIN_LOGGER_NAME, STAT_INTERFACE_LOGGER_NAME,
+                  PUSH_NOTIFICATIONS_LOGGER_NAME, PERIODIC_TASKS_LOGGER_NAME}
