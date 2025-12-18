@@ -295,13 +295,32 @@ def get_count_by_regions(queue_name: str,
     queue_df['region'] = queue_df[ct.CAR_NUMBER_COLUMN].apply(
         lambda cn: cn[-1] if ct.BELARUS_CAR_NUMBER_FORMAT.match(cn) else None
     )
+    # TODO: correct aggregation if floor_value is not None - drop with grouping by car number, then aggregate
+    # Apply time aggregation if specified
     if floor_value is not None:
-        queue_df[ct.LOAD_DATE_COLUMN] = queue_df[ct.LOAD_DATE_COLUMN].apply(lambda t: t.floor(floor_value))
+        
+        # Remove duplicates first, then aggregate
         queue_df = queue_df.drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN])
-    queue_df = queue_df \
-        .groupby(by=[ct.LOAD_DATE_COLUMN, 'region']) \
-        .aggregate({ct.CAR_NUMBER_COLUMN: 'count'}) \
-        .reset_index()
+        queue_df = apply_datetime_aggregation(
+            df=queue_df,
+            time_column=ct.LOAD_DATE_COLUMN,
+            floor_value=floor_value,
+            aggregation_method='drop',  # Just floor the time, don't aggregate counts yet
+            group_columns=['region'],
+            value_columns={ct.CAR_NUMBER_COLUMN: 'count'}
+        )
+        
+        # Now group by time and region to get counts
+        queue_df = queue_df \
+            .groupby(by=[ct.LOAD_DATE_COLUMN, 'region']) \
+            .aggregate({ct.CAR_NUMBER_COLUMN: aggregation_method}) \
+            .reset_index()
+    else:
+        queue_df = queue_df \
+            .groupby(by=[ct.LOAD_DATE_COLUMN, 'region']) \
+            .aggregate({ct.CAR_NUMBER_COLUMN: 'count'}) \
+            .reset_index()
+    
     queue_df = queue_df.rename(columns={ct.LOAD_DATE_COLUMN: 'relative_time',
                                         ct.CAR_NUMBER_COLUMN: 'vehicle_count'})
     queue_df['region'] = queue_df['region'].apply(lambda r: ct.BELARUS_REGIONS_MAP.get(r, 'other'))
@@ -432,12 +451,27 @@ def get_called_vehicles_waiting_time(queues_names: tp.List[str],
             columns=[ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN, ct.STATUS_COLUMN,
                      ct.CHANGED_DATE_COLUMN, ct.LOAD_DATE_COLUMN]
         ))[0]
+        
+        if queue_df is None or len(queue_df) == 0:
+            return pd.DataFrame(columns=['relative_time', 'waiting_after_called', 'queue_name'])
+        
+        # Apply time aggregation to datetime columns if specified
+        if floor_value is not None:
+            queue_df = apply_datetime_aggregation(
+                df=queue_df,
+                time_column=ct.CHANGED_DATE_COLUMN,
+                floor_value=floor_value,
+                aggregation_method='drop',  # Don't aggregate yet, just floor times
+                group_columns=[ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN],
+                value_columns={ct.LOAD_DATE_COLUMN: 'first', ct.STATUS_COLUMN: 'first'}
+            )
+
         queue_df = queue_df \
             .groupby([ct.CAR_NUMBER_COLUMN, ct.REGISTRATION_DATE_COLUMN]) \
             .aggregate({
             ct.STATUS_COLUMN: lambda st: any(st == 9),
             ct.CHANGED_DATE_COLUMN: 'min',
-            ct.LOAD_DATE_COLUMN: 'max'}) \
+            ct.LOAD_DATE_COLUMN: aggregation_type}) \
             .reset_index()
 
         queue_df = queue_df[queue_df[ct.STATUS_COLUMN] == False]
@@ -523,11 +557,35 @@ def get_number_of_declined_vehicles(queues_names: tp.List[str],
             in_batches=False,
             columns=[ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]
         ))[0]
-        queue_df = queue_df \
-            .drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN]) \
-            .groupby(ct.LOAD_DATE_COLUMN) \
-            .count().reset_index()
+        
+        if queue_df is None or len(queue_df) == 0:
+            return pd.DataFrame(columns=['relative_time', 'vehicle_count', 'queue_name'])
+        
+        # Remove duplicates and count by load date
+        queue_df = queue_df.drop_duplicates([ct.LOAD_DATE_COLUMN, ct.CAR_NUMBER_COLUMN])
         queue_df['queue_name'] = qname
+        
+        # Apply time aggregation if specified
+        if floor_value is not None:
+            queue_df = apply_datetime_aggregation(
+                df=queue_df,
+                time_column=ct.LOAD_DATE_COLUMN,
+                floor_value=floor_value,
+                aggregation_method='drop',  # Don't aggregate yet, just floor times
+                group_columns=['queue_name'],
+                value_columns={ct.CAR_NUMBER_COLUMN: 'count'}
+            )
+            
+            # Now group and aggregate
+            queue_df = queue_df \
+                .groupby([ct.LOAD_DATE_COLUMN, 'queue_name']) \
+                .aggregate({ct.CAR_NUMBER_COLUMN: aggregation_method}) \
+                .reset_index()
+        else:
+            queue_df = queue_df \
+                .groupby([ct.LOAD_DATE_COLUMN, 'queue_name']) \
+                .count().reset_index()
+        
         return queue_df.rename(columns={
             ct.LOAD_DATE_COLUMN: 'relative_time',
             ct.CAR_NUMBER_COLUMN: 'vehicle_count'
