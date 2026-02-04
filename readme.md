@@ -14,3 +14,18 @@ The Telegram bot also provides administrative logging information, including:
 - User statistics (number of users, request counts)
 - Popular plot analysis
 - Memory consumption metrics for stored queue data
+
+
+## UPD
+
+Work on this project has been stopped. 
+
+Current state: 
+- implemented base data analysis functions
+- started implementing telegram bot - not finished
+
+Analysis images examples:
+
+![Waiting hours](data/images/waiting_time_2.png)
+
+![Vehicles count](data/images/vehicle_count_2.png)
