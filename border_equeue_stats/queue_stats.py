@@ -40,8 +40,7 @@ def check_single_queue_name(queue_name: str) -> bool:
     """
     return (isinstance(queue_name, str)
             and queue_name in ct.ALL_EQUEUE_KEYS
-            and queue_name != ct.INFO_KEY), \
-        f'incorrect queue name - {queue_name}'
+            and queue_name != ct.INFO_KEY)
 
 
 def get_waiting_time(queues_names: tp.List[str],

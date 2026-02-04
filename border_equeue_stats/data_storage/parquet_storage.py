@@ -86,14 +86,15 @@ def file_visitor(written_file):
     print(f"metadata={written_file.metadata}")
 
 
-def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH) -> None:
+def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_PATH, verbose: bool = False) -> None:
     def dump_single_df(df: tp.Optional[pd.DataFrame], name: str):
         if df is not None and len(df) > 0:
             # TODO: check None values in queue_pos column
             table = pa.Table.from_pandas(df)
+            cur_file_visitor = file_visitor if verbose else None
             pq.write_to_dataset(table, root_path=os.path.join(parquet_storage_path, name),
-                                partition_cols=ct.PARTITION_COLUMNS, file_visitor=file_visitor)
-        else:
+                                partition_cols=ct.PARTITION_COLUMNS, file_visitor=cur_file_visitor)
+        elif verbose:
             print(f"Skipping empty {name}..")
 
     def dump_info(info: tp.Union[pd.Series, pd.DataFrame]):
@@ -120,14 +121,59 @@ def dump_to_parquet(data: dict, parquet_storage_path: str = ct.PARQUET_STORAGE_P
     dump_single_df(single_equeue_dataframes.motorcycle_priority, ct.MOTORCYCLE_PRIORITY_KEY)
 
 
-def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PATH,
-                                    parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
-    with open(json_storage_path, 'r') as f:
-        lines = f.readlines()
+def check_if_json_file_contains_equeue_data(json_file: str) -> bool:
+    with open(json_file, 'r') as f:
+        first_line = f.readline()
+    try:
+        res_equeue_data = convert_to_pandas_equeue(json.loads(first_line.replace("'", '"').replace('None', 'null')))
+    except Exception as e:
+        res_equeue_data = None
+    return res_equeue_data is not None
 
-    for line in lines:
-        line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
-        dump_to_parquet(line_dict, parquet_storage_path=parquet_storage_path)
+
+def dump_all_stored_json_to_parquet(json_storage_path: str = ct.JSON_STORAGE_PATH,
+                                    parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
+                                    verbose: bool = False):
+    
+    all_lines = 0
+    skipped_lines = 0
+    line_num = 0
+    with open(json_storage_path, 'r') as f:
+        while True:
+            line_num += 1
+            try:
+                line = f.readline()
+                if not line:
+                    break
+                all_lines += 1
+                line_dict = json.loads(line.replace("'", '"').replace('None', 'null'))
+                dump_to_parquet(line_dict, parquet_storage_path=parquet_storage_path, verbose=verbose)
+            except Exception as e:
+                skipped_lines += 1
+                if verbose:
+                    print(f"Error dumping {line_num}: {e}")
+
+    print(f"Processed {all_lines} lines. Skipped {skipped_lines} lines")
+
+def dump_stored_json_folder_to_parquet(json_storage_folder_path: str,
+                                       parquet_storage_path: str = ct.PARQUET_STORAGE_PATH,
+                                       files_start_with: tp.Optional[str] = None,
+                                       verbose: bool = False) -> None:
+
+    all_json_files = [os.path.join(json_storage_folder_path, f) for f in os.listdir(json_storage_folder_path) if files_start_with is None or f.startswith(files_start_with)]
+    print("Files to process:", '\n\t'.join(all_json_files))
+    # equeue_data_files = [json_file for json_file in all_json_files if check_if_json_file_contains_equeue_data(json_file)]
+    # print("Files with equeue data:", '\n\t'.join(equeue_data_files))
+
+    res = input("Type 'y' to continue")
+    if res != 'y':
+        print("Exiting...")
+        return
+
+    print("Dumping to parquet...")
+    for json_file in all_json_files:
+        dump_all_stored_json_to_parquet(json_storage_path=json_file, parquet_storage_path=parquet_storage_path, verbose=verbose)
+        print(f"Dumped {json_file} to parquet")
 
 
 def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
@@ -153,7 +199,7 @@ def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
             continue
         dataset = pq.ParquetDataset(cur_path)
         if not has_many_files(dataset, cur_path):
-            shutil.move(cur_path, os.path.join(tmp_parquet_storage_path, name))
+            shutil.copytree(cur_path, os.path.join(tmp_parquet_storage_path, name))
         else:
             df = list(read_from_parquet(name=name, parquet_storage_path=parquet_storage_path, in_batches=False))[0]
             if df is not None:
@@ -161,6 +207,6 @@ def coalesce_parquet_data(parquet_storage_path: str = ct.PARQUET_STORAGE_PATH):
                 pq.write_to_dataset(table, root_path=os.path.join(tmp_parquet_storage_path, name),
                                     partition_cols=ct.PARTITION_COLUMNS, file_visitor=file_visitor)
 
-    shutil.rmtree(parquet_storage_path)
-    # os.rename(parquet_storage_path, parquet_storage_path + '_backup')
+    # shutil.rmtree(parquet_storage_path)
+    os.rename(parquet_storage_path, parquet_storage_path + '_backup')
     os.rename(tmp_parquet_storage_path, parquet_storage_path)
